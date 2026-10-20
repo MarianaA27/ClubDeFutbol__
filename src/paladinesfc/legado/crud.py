@@ -986,6 +986,14 @@ def asignar_jugador_banca(id_plantilla, id_jugador, fecha_asignacion):
     )
 
 
+def quitar_jugador_de_alineacion(id_plantilla, id_jugador):
+    """Antes este DELETE se escribía a mano en la capa de presentación (P5)."""
+    ejecutar_query(
+        "DELETE FROM PLANTILLA_ALINEACION WHERE id_plantilla = ? AND id_jugador = ?",
+        (int(id_plantilla), int(id_jugador))
+    )
+
+
 def quitar_jugador_plantilla(id_plantilla_jugador):
     """Borrado físico del registro de jugador en la plantilla (titular o banca)."""
     ejecutar_query(
