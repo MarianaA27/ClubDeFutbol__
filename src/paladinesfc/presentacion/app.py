@@ -2,6 +2,12 @@
 App.py — Club Fútbol DB
 Interfaz gráfica completa usando CustomTkinter.
 
+RE-ARQUITECTURA (Entregable 3, Arquitectura de Sistemas):
+  - Jugadores, Jugador–Tutor, Tutores y Profesores usan la nueva arquitectura en
+    capas (presentación → aplicación → dominio ← infraestructura). Ver
+    docs/arquitectura.md y docs/adr/.
+  - El resto de pestañas sigue sobre paladinesfc.legado.crud hasta su migración.
+
 CAMBIOS EN ESTA VERSIÓN:
   - TabJugadores reescrita desde cero (formulario limpio y robusto)
   - VentanaDetalleJugador mejorada: muestra tutores + plantillas + opción agregar tutor
@@ -18,7 +24,9 @@ import customtkinter as ctk
 from datetime import datetime
 import threading
 
-from paladinesfc.legado import crud
+from paladinesfc.dominio.validaciones import ESTADOS_JUGADOR, ESTADOS_PERSONA, PARENTESCOS, TALLAS
+from paladinesfc.legado import crud  # módulos fuera del alcance del MVP (se migrarán después)
+from paladinesfc.presentacion.contenedor import servicios
 
 # ─────────────────────────────────────────────────────────────────────────────
 # CONFIGURACIÓN GLOBAL
@@ -195,17 +203,42 @@ def barra_busqueda(parent, placeholder, on_buscar, on_limpiar):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# SECCIÓN 1 — JUGADORES (REESCRITA DESDE CERO)
+# SECCIÓN 1 — MÓDULOS DEL MVP: JUGADORES, JUGADOR–TUTOR, TUTORES, PROFESORES
+#
+# Re-arquitectura (Entregable 3). Estas pantallas ya NO llaman a crud.py:
+#   * usan los servicios de aplicación (paladinesfc.aplicacion), que trabajan
+#     con entidades de dominio y una unidad de trabajo transaccional;
+#   * leen los datos por NOMBRE de atributo, no por posición (ADR-0001);
+#   * los desplegables guardan el ID seleccionado, no comparan el texto
+#     visible, y muestran el documento para distinguir homónimos (P1);
+#   * las búsquedas por cédula se filtran en SQL (ADR-0005);
+#   * "Eliminar" pasa a ser "Dar de baja": inactivación lógica (ADR-0003).
+# La apariencia y el flujo de cada pantalla se conservan.
 # ─────────────────────────────────────────────────────────────────────────────
+
+def _texto(valor):
+    return "" if valor is None else str(valor)
+
+
+def _mapa_items(tree, objetos):
+    """Asocia cada fila del Treeview con su objeto, para no releer IDs por posición."""
+    return dict(zip(tree.get_children(), objetos))
+
 
 class TabJugadores(ctk.CTkFrame):
     """
     Tab principal de jugadores.
-    Funciones: listar, buscar por cédula, ver detalle, registrar, editar, eliminar.
+    Funciones: listar, buscar por cédula, ver detalle, registrar, editar, dar de baja.
     """
+    COLUMNAS = ["ID", "Jugador", "Documento", "Estado", "Nacimiento",
+                "Talla", "Tutor Principal", "Parentesco", "Tel. Tutor"]
+    CAMPOS = ["id_jugador", "jugador", "documento", "estado", "fecha_nacimiento",
+              "talla_uniforme", "tutor_principal", "parentesco", "telefono_tutor"]
+
     def __init__(self, master):
         super().__init__(master, fg_color=GRIS_FONDO)
         self._tree = None
+        self._filas = {}
         self._construir()
 
     def _construir(self):
@@ -216,7 +249,7 @@ class TabJugadores(ctk.CTkFrame):
                      text_color=BLANCO).pack(side="left", padx=18, pady=10)
         boton(top, "Actualizar", self.cargar, color="#555577", ancho=110).pack(side="right", padx=8, pady=8)
         boton(top, "Ver Detalle", self._ver_detalle, color=NARANJA).pack(side="right", padx=4, pady=8)
-        boton(top, "Eliminar", self._eliminar, color=ROJO).pack(side="right", padx=4, pady=8)
+        boton(top, "Dar de baja", self._dar_de_baja, color=ROJO).pack(side="right", padx=4, pady=8)
         boton(top, "Editar", self._editar, color=AZUL).pack(side="right", padx=4, pady=8)
         boton(top, "+ Registrar", self._form_nuevo).pack(side="right", padx=4, pady=8)
 
@@ -229,40 +262,31 @@ class TabJugadores(ctk.CTkFrame):
         self.cargar()
 
     def cargar(self):
+        self._mostrar(None)
+
+    def _buscar(self, cedula):
+        self._mostrar(cedula.strip() or None)
+
+    def _mostrar(self, cedula):
         limpiar_frame(self._area)
         try:
-            cols, rows = crud.get_jugadores_con_tutor()
+            filas = servicios.jugadores.listar(cedula)
         except Exception as e:
             ctk.CTkLabel(self._area, text=f"Error: {e}", text_color=ROJO,
                          font=FONT_NORMAL).pack(pady=20)
             return
-        self._renderizar_tabla(rows)
-
-    def _buscar(self, cedula):
-        if not cedula.strip():
-            self.cargar()
-            return
-        limpiar_frame(self._area)
-        try:
-            cols, rows = crud.get_jugadores_con_tutor()
-            filtrados = [r for r in rows if cedula.strip() in str(r[2])]
-        except Exception as e:
-            ctk.CTkLabel(self._area, text=f"Error: {e}", text_color=ROJO).pack()
-            return
-        if not filtrados:
+        if cedula and not filas:
             ctk.CTkLabel(self._area, text="Sin resultados para esa cédula.",
                          text_color=TEXTO_SEC, font=FONT_NORMAL).pack(pady=20)
+            self._tree = None
             return
-        self._renderizar_tabla(filtrados)
-
-    def _renderizar_tabla(self, rows):
-        cols_nombres = ["ID", "Jugador", "Documento", "Estado", "Nacimiento",
-                        "Talla", "Tutor Principal", "Parentesco", "Tel. Tutor"]
+        datos = [[fila[c] for c in self.CAMPOS] for fila in filas]
         anchos = {"ID": 40, "Jugador": 180, "Documento": 110, "Estado": 80,
                   "Nacimiento": 100, "Talla": 60, "Tutor Principal": 180,
                   "Parentesco": 100, "Tel. Tutor": 120}
-        ft, self._tree = hacer_tabla(self._area, cols_nombres, rows, altura=22, ancho_col=anchos)
+        ft, self._tree = hacer_tabla(self._area, self.COLUMNAS, datos, altura=22, ancho_col=anchos)
         ft.pack(fill="both", expand=True)
+        self._filas = _mapa_items(self._tree, filas)
 
     def _seleccionado(self):
         if not self._tree:
@@ -271,32 +295,32 @@ class TabJugadores(ctk.CTkFrame):
         if not sel:
             mostrar_error("Selecciona un jugador primero.")
             return None
-        return self._tree.item(sel[0])["values"]
+        return self._filas[sel[0]]
 
     def _ver_detalle(self):
-        v = self._seleccionado()
-        if v:
-            VentanaDetalleJugador(self, v[0])
+        fila = self._seleccionado()
+        if fila:
+            VentanaDetalleJugador(self, fila["id_jugador"])
 
     def _form_nuevo(self):
         FormJugador(self, modo="nuevo", on_save=self.cargar)
 
     def _editar(self):
-        v = self._seleccionado()
-        if v:
-            FormJugador(self, modo="editar", id_jugador=v[0], on_save=self.cargar)
+        fila = self._seleccionado()
+        if fila:
+            FormJugador(self, modo="editar", id_jugador=fila["id_jugador"], on_save=self.cargar)
 
-    def _eliminar(self):
-        v = self._seleccionado()
-        if not v:
+    def _dar_de_baja(self):
+        fila = self._seleccionado()
+        if not fila:
             return
-        nombre = v[1]
-        if confirmar(f"¿ELIMINAR al jugador '{nombre}'?\n\n"
+        if confirmar(f"¿Dar de baja al jugador '{fila['jugador']}'?\n\n"
                      "Solo es posible si no tiene plantillas activas.\n"
-                     "Esta acción eliminará también su historial de pagos y morosidad."):
+                     "El jugador quedará INACTIVO: se conservan sus pagos, morosidad,\n"
+                     "asistencias y tutores. Puede reactivarse desde 'Editar' (estado = activo)."):
             try:
-                crud.delete_jugador(v[0])
-                mostrar_info("Jugador eliminado correctamente.")
+                servicios.jugadores.inactivar(fila["id_jugador"])
+                mostrar_info("Jugador dado de baja (inactivado, no eliminado).")
                 self.cargar()
             except Exception as e:
                 mostrar_error(e)
@@ -313,7 +337,7 @@ class FormJugador(ctk.CTkToplevel):
         self.modo = modo
         self.id_jugador = id_jugador
         self.on_save = on_save
-        self._tutores_data = []
+        self._tutores_por_etiqueta = {}
         self.title("Registrar Jugador" if modo == "nuevo" else "Editar Jugador")
         self.geometry("600x720")
         self.configure(fg_color=GRIS_FONDO)
@@ -337,20 +361,17 @@ class FormJugador(ctk.CTkToplevel):
                                       placeholder="AAAA-MM-DD", ancho=180)
         self.e_fingreso  = campo_form(scroll, "Fec. Ingreso *", 4,
                                       placeholder="AAAA-MM-DD", ancho=180)
-        # Número preferido
         self.e_num_pref  = campo_form(scroll, "Nº Preferido", 5,
                                       placeholder="Opcional (1-99)", ancho=140)
-        # Talla uniforme
-        self.cb_talla    = combo_form(scroll, "Talla Uniforme *", 6,
-                                      ["XS", "S", "M", "L", "XL", "XXL"], ancho=140)
-        # Estado (solo en edición)
-        self.cb_estado   = combo_form(scroll, "Estado *", 7,
-                                      ["activo", "inactivo", "lesionado"], ancho=160)
+        self.cb_talla    = combo_form(scroll, "Talla Uniforme *", 6, list(TALLAS), ancho=140)
+        self.cb_estado   = combo_form(scroll, "Estado *", 7, list(ESTADOS_JUGADOR), ancho=160)
         self.e_obs       = campo_form(scroll, "Observaciones", 8,
                                       ancho=340, placeholder="Opcional")
 
         # Selector de tutor — solo en modo nuevo
         if self.modo == "nuevo":
+            self.cb_estado.set("activo")
+            self.cb_estado.configure(state="disabled")
             sep = ctk.CTkFrame(scroll, fg_color=VERDE, height=2)
             sep.grid(row=9, column=0, columnspan=2, sticky="ew", padx=10, pady=(12, 6))
 
@@ -359,38 +380,27 @@ class FormJugador(ctk.CTkToplevel):
                 row=10, column=0, sticky="e", padx=(10, 4), pady=4)
 
             try:
-                self._tutores_data = crud.get_tutores_simple()
+                tutores = servicios.tutores.opciones()
             except Exception:
-                self._tutores_data = []
-
-            if self._tutores_data:
-                tutor_names = [f"{r[1]}" for r in self._tutores_data]
-            else:
-                tutor_names = ["-- No hay tutores registrados --"]
+                tutores = []
+            # La etiqueta incluye el documento: dos tutores homónimos ya no se confunden (P1).
+            self._tutores_por_etiqueta = {t.etiqueta: t.id_tutor for t in tutores}
+            etiquetas = list(self._tutores_por_etiqueta) or ["-- No hay tutores registrados --"]
 
             self.cb_tutor = ctk.CTkComboBox(
-                scroll, values=tutor_names, width=300,
+                scroll, values=etiquetas, width=300,
                 fg_color=GRIS_PANEL, border_color=VERDE,
                 button_color=VERDE, dropdown_fg_color=GRIS_PANEL)
             self.cb_tutor.grid(row=10, column=1, sticky="w", padx=(0, 14), pady=4)
 
-            self.cb_parentesco = combo_form(
-                scroll, "Parentesco *", 11,
-                ["Padre", "Madre", "Abuelo/a", "Tío/a", "Hermano/a", "Acudiente", "Otro"],
-                ancho=200)
+            self.cb_parentesco = combo_form(scroll, "Parentesco *", 11, list(PARENTESCOS), ancho=200)
 
-            if not self._tutores_data:
+            if not self._tutores_por_etiqueta:
                 ctk.CTkLabel(
                     scroll,
                     text="⚠ Registra un tutor primero antes de crear un jugador.",
                     font=FONT_SMALL, text_color=NARANJA
                 ).grid(row=12, column=0, columnspan=2, pady=4)
-
-        # En modo edición, doc/fnac/fingreso no se pueden modificar
-        if self.modo == "editar":
-            self.e_doc.configure(state="disabled")
-            self.e_fnac.configure(state="disabled")
-            self.e_fingreso.configure(state="disabled")
 
         # Botones FUERA del scroll — siempre visibles
         bf = ctk.CTkFrame(self, fg_color="transparent")
@@ -400,71 +410,52 @@ class FormJugador(ctk.CTkToplevel):
 
     def _cargar_datos(self):
         try:
-            datos, tutores, plantillas = crud.get_detalle_jugador_completo(self.id_jugador)
-            if not datos[1]:
-                return
-            j = datos[1][0]
-            # j: id, nombres, apellidos, doc, fnac, num_pref, talla, estado, fingreso, obs
-            self.e_nombres.insert(0, j[1])
-            self.e_apellidos.insert(0, j[2])
-            self.e_doc.insert(0, j[3])
-            self.e_fnac.insert(0, str(j[4]))
-            self.e_fingreso.insert(0, str(j[8]))
-            if j[5]:
-                self.e_num_pref.insert(0, str(j[5]))
-            self.cb_talla.set(j[6])
-            self.cb_estado.set(j[7])
-            if j[9]:
-                self.e_obs.insert(0, j[9])
+            j = servicios.jugadores.obtener(self.id_jugador)
         except Exception as e:
             mostrar_error(e)
+            return
+        self.e_nombres.insert(0, j.nombres)
+        self.e_apellidos.insert(0, j.apellidos)
+        self.e_doc.insert(0, j.documento)
+        self.e_fnac.insert(0, _texto(j.fecha_nacimiento))
+        self.e_fingreso.insert(0, _texto(j.fecha_ingreso))
+        if j.numero_preferido:
+            self.e_num_pref.insert(0, str(j.numero_preferido))
+        self.cb_talla.set(j.talla_uniforme)
+        self.cb_estado.set(j.estado)
+        if j.observaciones:
+            self.e_obs.insert(0, j.observaciones)
+        # En modo edición, doc/fnac/fingreso no se pueden modificar
+        for campo in (self.e_doc, self.e_fnac, self.e_fingreso):
+            campo.configure(state="disabled")
 
     def _guardar(self):
         try:
-            nombres   = self.e_nombres.get().strip()
-            apellidos = self.e_apellidos.get().strip()
-            num_pref  = self.e_num_pref.get().strip() or None
+            nombres   = self.e_nombres.get()
+            apellidos = self.e_apellidos.get()
+            num_pref  = self.e_num_pref.get()
             talla     = self.cb_talla.get()
-            estado    = self.cb_estado.get()
-            obs       = self.e_obs.get().strip() or None
+            obs       = self.e_obs.get()
 
             if self.modo == "nuevo":
-                doc      = self.e_doc.get().strip()
-                fnac     = self.e_fnac.get().strip()
-                fingreso = self.e_fingreso.get().strip()
-
-                if not self._tutores_data:
+                if not self._tutores_por_etiqueta:
                     mostrar_error("No hay tutores registrados.\n"
                                   "Ve a la pestaña Tutores y registra uno primero.")
                     return
-
-                tutor_txt = self.cb_tutor.get()
-                id_tutor = None
-                for r in self._tutores_data:
-                    if str(r[1]) == tutor_txt:
-                        id_tutor = r[0]
-                        break
-                if not id_tutor:
+                id_tutor = self._tutores_por_etiqueta.get(self.cb_tutor.get())
+                if id_tutor is None:
                     mostrar_error("Selecciona un tutor válido de la lista.")
                     return
-
-                parentesco = self.cb_parentesco.get()
-                if not parentesco:
-                    mostrar_error("Selecciona el parentesco del tutor.")
-                    return
-
-                crud.insert_jugador_con_tutor(
-                    nombres, apellidos, doc, fnac,
-                    num_pref, talla, fingreso, obs,
-                    id_tutor, parentesco, True
-                )
+                servicios.jugadores.registrar_con_tutor(
+                    nombres, apellidos, self.e_doc.get(), self.e_fnac.get(),
+                    num_pref, talla, self.e_fingreso.get(), obs,
+                    id_tutor, self.cb_parentesco.get())
                 mostrar_info("Jugador registrado exitosamente.\n"
                              "Fue añadido automáticamente a la lista de morosidad.")
             else:
-                crud.update_jugador(
+                servicios.jugadores.actualizar(
                     self.id_jugador, nombres, apellidos,
-                    num_pref, talla, estado, obs
-                )
+                    num_pref, talla, self.cb_estado.get(), obs)
                 mostrar_info("Jugador actualizado correctamente.")
 
             if self.on_save:
@@ -478,7 +469,7 @@ class VentanaDetalleJugador(ctk.CTkToplevel):
     """
     Ventana de detalle completo de un jugador:
     - Datos personales
-    - Tutores vinculados (con opción de cambiar acudiente principal y agregar nuevos)
+    - Tutores vinculados (cambiar acudiente principal, agregar y desvincular)
     - Plantillas activas
     """
     def __init__(self, master, id_jugador):
@@ -488,40 +479,33 @@ class VentanaDetalleJugador(ctk.CTkToplevel):
         self.configure(fg_color=GRIS_FONDO)
         self.grab_set()
         self.id_jugador = id_jugador
+        self._vinculos = {}
         self._cargar()
 
     def _cargar(self):
         limpiar_frame(self)
         try:
-            datos, tutores, plantillas = crud.get_detalle_jugador_completo(self.id_jugador)
+            j, tutores, plantillas = servicios.jugadores.detalle(self.id_jugador)
         except Exception as e:
             mostrar_error(e)
             self.destroy()
             return
 
-        if not datos[1]:
-            mostrar_error("Jugador no encontrado.")
-            self.destroy()
-            return
-
-        j = datos[1][0]
-        # j: id, nombres, apellidos, doc, fnac, num_pref, talla, estado, fingreso, obs
-
         # ── Título ──
-        ctk.CTkLabel(self, text=f"  {j[1]} {j[2]}", font=FONT_TITULO,
+        ctk.CTkLabel(self, text=f"  {j.nombre_completo}", font=FONT_TITULO,
                      text_color=VERDE).pack(pady=(18, 4))
 
         # ── Info personal ──
         fp = ctk.CTkFrame(self, fg_color=GRIS_CARD, corner_radius=10)
         fp.pack(fill="x", padx=20, pady=6)
         info = [
-            ("Documento", j[3]),
-            ("Nacimiento", str(j[4])),
-            ("Talla", j[6]),
-            ("Nº Preferido", j[5] or "—"),
-            ("Estado", j[7]),
-            ("Ingreso", str(j[8])),
-            ("Observaciones", j[9] or "—"),
+            ("Documento", j.documento),
+            ("Nacimiento", _texto(j.fecha_nacimiento)),
+            ("Talla", j.talla_uniforme),
+            ("Nº Preferido", j.numero_preferido or "—"),
+            ("Estado", j.estado),
+            ("Ingreso", _texto(j.fecha_ingreso)),
+            ("Observaciones", j.observaciones or "—"),
         ]
         for i, (lbl, val) in enumerate(info):
             r, c = divmod(i, 3)
@@ -544,40 +528,43 @@ class VentanaDetalleJugador(ctk.CTkToplevel):
         boton(hdr_t, "Desvincular", self._desvincular_tutor,
               color=ROJO, ancho=120).pack(side="right", padx=4)
 
-        self._tutores_data = tutores[1]
-        cols_t = ["ID_JT", "ID Tutor", "Nombre", "Teléfono", "Email", "Parentesco", "Principal"]
+        cols_t = ["Nombre", "Teléfono", "Email", "Parentesco", "Principal"]
         datos_t = [
-            (r[0], r[1], r[2], r[3], r[4], r[5], "✓ Principal" if r[6] else "")
-            for r in tutores[1]
+            (v.nombre_tutor, v.telefono, v.email, v.parentesco,
+             "✓ Principal" if v.acudiente_principal else "")
+            for v in tutores.vinculos
         ]
         ft, self._tree_tutores = hacer_tabla(
             self, cols_t, datos_t, altura=4,
-            ancho_col={"ID_JT": 50, "ID Tutor": 60, "Nombre": 180,
-                       "Teléfono": 110, "Email": 160, "Parentesco": 90, "Principal": 80})
+            ancho_col={"Nombre": 200, "Teléfono": 120, "Email": 200,
+                       "Parentesco": 100, "Principal": 90})
         ft.pack(fill="x", padx=20, pady=2)
+        self._vinculos = _mapa_items(self._tree_tutores, tutores.vinculos)
 
         # ── Plantillas ──
         ctk.CTkLabel(self, text="Plantillas activas", font=FONT_SUBTIT,
                      text_color=VERDE).pack(anchor="w", padx=22, pady=(12, 2))
         cols_p = ["Plantilla", "Categoría", "Temporada", "Estado", "Desde"]
-        datos_p = [(r[1], r[2], r[3] or "—", r[4], str(r[5])) for r in plantillas[1]]
+        datos_p = [(p["nombre_plantilla"], p["nombre_categoria"], p["temporada"] or "—",
+                    p["estado"], _texto(p["fecha_asignacion"])) for p in plantillas]
         fp2, _ = hacer_tabla(self, cols_p, datos_p, altura=4,
                              ancho_col={"Plantilla": 200, "Categoría": 150,
                                         "Estado": 80, "Temporada": 90})
         fp2.pack(fill="x", padx=20, pady=(2, 16))
 
-    def _cambiar_principal(self):
+    def _vinculo_seleccionado(self):
         sel = self._tree_tutores.selection()
         if not sel:
             mostrar_error("Selecciona un tutor de la lista.")
-            return
-        v = self._tree_tutores.item(sel[0])["values"]
-        id_tutor = v[1]
-        nombre = v[2]
-        if confirmar(f"¿Establecer a '{nombre}' como acudiente principal?"):
+            return None
+        return self._vinculos[sel[0]]
+
+    def _cambiar_principal(self):
+        v = self._vinculo_seleccionado()
+        if v and confirmar(f"¿Establecer a '{v.nombre_tutor}' como acudiente principal?"):
             try:
-                crud.set_acudiente_principal(self.id_jugador, id_tutor)
-                mostrar_info(f"'{nombre}' es ahora el acudiente principal.")
+                servicios.vinculacion.cambiar_principal(self.id_jugador, v.id_tutor)
+                mostrar_info(f"'{v.nombre_tutor}' es ahora el acudiente principal.")
                 self._cargar()
             except Exception as e:
                 mostrar_error(e)
@@ -586,17 +573,11 @@ class VentanaDetalleJugador(ctk.CTkToplevel):
         FormVincularTutor(self, self.id_jugador, on_save=self._cargar)
 
     def _desvincular_tutor(self):
-        sel = self._tree_tutores.selection()
-        if not sel:
-            mostrar_error("Selecciona un tutor de la lista.")
-            return
-        v = self._tree_tutores.item(sel[0])["values"]
-        id_jt = v[0]
-        nombre = v[2]
-        if confirmar(f"¿Desvincular a '{nombre}' de este jugador?\n"
-                     "No es posible si es el único tutor del jugador."):
+        v = self._vinculo_seleccionado()
+        if v and confirmar(f"¿Desvincular a '{v.nombre_tutor}' de este jugador?\n"
+                           "No es posible si es el único tutor o el acudiente principal."):
             try:
-                crud.delete_jugador_tutor(id_jt)
+                servicios.vinculacion.desvincular(v.id_jugador_tutor)
                 mostrar_info("Tutor desvinculado.")
                 self._cargar()
             except Exception as e:
@@ -610,10 +591,10 @@ class FormVincularTutor(ctk.CTkToplevel):
         self.id_jugador = id_jugador
         self.on_save = on_save
         self.title("Vincular Tutor al Jugador")
-        self.geometry("520x360")
+        self.geometry("560x360")
         self.configure(fg_color=GRIS_FONDO)
         self.grab_set()
-        self._tutores_data = []
+        self._tutores_por_etiqueta = {}
         self._construir()
 
     def _construir(self):
@@ -621,23 +602,23 @@ class FormVincularTutor(ctk.CTkToplevel):
                      text_color=VERDE).pack(pady=(16, 8))
 
         try:
-            self._tutores_data = crud.get_tutores_simple()
+            tutores = servicios.tutores.opciones()
         except Exception:
-            self._tutores_data = []
+            tutores = []
+        self._tutores_por_etiqueta = {t.etiqueta: t.id_tutor for t in tutores}
 
         form = ctk.CTkFrame(self, fg_color=GRIS_CARD, corner_radius=10)
         form.pack(fill="both", expand=True, padx=20, pady=6)
 
-        tutor_names = [f"{r[1]}" for r in self._tutores_data] if self._tutores_data else ["-- Sin tutores --"]
+        etiquetas = list(self._tutores_por_etiqueta) or ["-- Sin tutores --"]
         ctk.CTkLabel(form, text="Tutor *", font=FONT_NORMAL, text_color=TEXTO_SEC
                      ).grid(row=0, column=0, sticky="e", padx=(10, 4), pady=8)
-        self.cb_tutor = ctk.CTkComboBox(form, values=tutor_names, width=280,
+        self.cb_tutor = ctk.CTkComboBox(form, values=etiquetas, width=320,
                                          fg_color=GRIS_PANEL, border_color=VERDE,
                                          button_color=VERDE, dropdown_fg_color=GRIS_PANEL)
         self.cb_tutor.grid(row=0, column=1, sticky="w", padx=(0, 14), pady=8)
 
-        self.cb_parentesco = combo_form(form, "Parentesco *", 1,
-            ["Padre", "Madre", "Abuelo/a", "Tío/a", "Hermano/a", "Acudiente", "Otro"], ancho=200)
+        self.cb_parentesco = combo_form(form, "Parentesco *", 1, list(PARENTESCOS), ancho=200)
 
         self.var_principal = tk.BooleanVar(value=False)
         ctk.CTkCheckBox(form, text="Establecer como acudiente principal",
@@ -651,20 +632,13 @@ class FormVincularTutor(ctk.CTkToplevel):
         boton(bf, "Cancelar", self.destroy, color=ROJO).pack(side="left", padx=8)
 
     def _guardar(self):
-        if not self._tutores_data:
-            mostrar_error("No hay tutores disponibles.")
-            return
-        tutor_txt = self.cb_tutor.get()
-        id_tutor = next((r[0] for r in self._tutores_data if str(r[1]) == tutor_txt), None)
-        if not id_tutor:
+        id_tutor = self._tutores_por_etiqueta.get(self.cb_tutor.get())
+        if id_tutor is None:
             mostrar_error("Selecciona un tutor válido.")
             return
         try:
-            crud.insert_jugador_tutor(
-                self.id_jugador, id_tutor,
-                self.cb_parentesco.get(),
-                self.var_principal.get()
-            )
+            servicios.vinculacion.vincular(
+                self.id_jugador, id_tutor, self.cb_parentesco.get(), self.var_principal.get())
             mostrar_info("Tutor vinculado exitosamente.")
             if self.on_save:
                 self.on_save()
@@ -678,9 +652,14 @@ class FormVincularTutor(ctk.CTkToplevel):
 # ─────────────────────────────────────────────────────────────────────────────
 
 class TabTutores(ctk.CTkFrame):
+    COLUMNAS = ["ID", "Nombres", "Apellidos", "Documento", "Teléfono", "Email", "Dirección", "Estado"]
+    ANCHOS = {"ID": 40, "Nombres": 150, "Apellidos": 150, "Documento": 110,
+              "Teléfono": 120, "Email": 200, "Dirección": 200, "Estado": 80}
+
     def __init__(self, master):
         super().__init__(master, fg_color=GRIS_FONDO)
         self._tree = None
+        self._tutores = {}
         self._construir()
 
     def _construir(self):
@@ -690,7 +669,7 @@ class TabTutores(ctk.CTkFrame):
                      ).pack(side="left", padx=18, pady=10)
         boton(top, "Actualizar", self.cargar, color="#555577", ancho=100).pack(side="right", padx=8, pady=8)
         boton(top, "Ver Detalle", self._ver_detalle, color=NARANJA).pack(side="right", padx=4, pady=8)
-        boton(top, "Eliminar", self._eliminar, color=ROJO).pack(side="right", padx=4, pady=8)
+        boton(top, "Dar de baja", self._dar_de_baja, color=ROJO).pack(side="right", padx=4, pady=8)
         boton(top, "Editar", self._editar, color=AZUL).pack(side="right", padx=4, pady=8)
         boton(top, "+ Registrar", self._form_nuevo).pack(side="right", padx=4, pady=8)
 
@@ -701,89 +680,83 @@ class TabTutores(ctk.CTkFrame):
         self.cargar()
 
     def cargar(self):
-        limpiar_frame(self._area)
-        try:
-            cols, rows = crud.get_tutores()
-        except Exception as e:
-            ctk.CTkLabel(self._area, text=f"Error: {e}", text_color=ROJO).pack()
-            return
-        nombres = ["ID", "Nombres", "Apellidos", "Documento", "Teléfono", "Email", "Dirección"]
-        anchos = {"ID": 40, "Nombres": 150, "Apellidos": 150, "Documento": 110,
-                  "Teléfono": 120, "Email": 200, "Dirección": 200}
-        ft, self._tree = hacer_tabla(self._area, nombres, rows, altura=22, ancho_col=anchos)
-        ft.pack(fill="both", expand=True)
+        self._mostrar(None)
 
     def _buscar(self, cedula):
-        if not cedula.strip():
-            self.cargar()
-            return
+        self._mostrar(cedula.strip() or None)
+
+    def _mostrar(self, cedula):
         limpiar_frame(self._area)
         try:
-            cols, rows = crud.get_tutores()
-            filtrados = [r for r in rows if cedula.strip() in str(r[3])]
+            tutores = servicios.tutores.listar(cedula)
         except Exception as e:
             ctk.CTkLabel(self._area, text=f"Error: {e}", text_color=ROJO).pack()
             return
-        if not filtrados:
+        if cedula and not tutores:
             ctk.CTkLabel(self._area, text="Sin resultados para esa cédula.",
                          text_color=TEXTO_SEC, font=FONT_NORMAL).pack(pady=20)
+            self._tree = None
             return
-        nombres = ["ID", "Nombres", "Apellidos", "Documento", "Teléfono", "Email", "Dirección"]
-        anchos = {"ID": 40, "Nombres": 150, "Apellidos": 150, "Documento": 110,
-                  "Teléfono": 120, "Email": 200, "Dirección": 200}
-        ft, self._tree = hacer_tabla(self._area, nombres, filtrados, altura=22, ancho_col=anchos)
+        datos = [(t.id_tutor, t.nombres, t.apellidos, t.documento, t.telefono,
+                  t.email, t.direccion, t.estado) for t in tutores]
+        ft, self._tree = hacer_tabla(self._area, self.COLUMNAS, datos, altura=22, ancho_col=self.ANCHOS)
         ft.pack(fill="both", expand=True)
+        self._tutores = _mapa_items(self._tree, tutores)
 
     def _seleccionado(self):
         sel = self._tree.selection() if self._tree else []
         if not sel:
             mostrar_error("Selecciona un tutor primero.")
             return None
-        return self._tree.item(sel[0])["values"]
+        return self._tutores[sel[0]]
 
     def _ver_detalle(self):
-        v = self._seleccionado()
-        if not v:
+        t = self._seleccionado()
+        if not t:
             return
         try:
-            cols, rows = crud.get_detalle_tutor(v[0])
+            tutor, jugadores = servicios.tutores.detalle(t.id_tutor)
         except Exception as e:
             mostrar_error(e)
             return
         win = ctk.CTkToplevel(self)
-        win.title(f"Detalle Tutor — {v[1]} {v[2]}")
+        win.title(f"Detalle Tutor — {tutor.nombre_completo}")
         win.geometry("640x420")
         win.configure(fg_color=GRIS_FONDO)
         win.grab_set()
-        ctk.CTkLabel(win, text=f"  {v[1]} {v[2]}", font=FONT_TITULO,
+        ctk.CTkLabel(win, text=f"  {tutor.nombre_completo}", font=FONT_TITULO,
                      text_color=VERDE).pack(pady=14)
-        ctk.CTkLabel(win, text=f"Documento: {v[3]}  |  Teléfono: {v[4]}  |  Email: {v[5]}",
+        ctk.CTkLabel(win, text=f"Documento: {tutor.documento}  |  Teléfono: {tutor.telefono}  |  Email: {tutor.email}",
                      font=FONT_NORMAL, text_color=TEXTO_SEC).pack()
-        ctk.CTkLabel(win, text=f"Dirección: {v[6]}", font=FONT_SMALL,
+        ctk.CTkLabel(win, text=f"Dirección: {tutor.direccion}  |  Estado: {tutor.estado}", font=FONT_SMALL,
                      text_color=TEXTO_SEC).pack(pady=(0, 8))
         ctk.CTkLabel(win, text="Jugadores a cargo", font=FONT_SUBTIT,
                      text_color=VERDE).pack(anchor="w", padx=16)
-        nombres_c = ["Tutor", "Teléfono", "Email", "Jugador a cargo", "Parentesco"]
-        ft, _ = hacer_tabla(win, nombres_c, rows, altura=10)
+        # Antes: VW_DetalleTutor devolvía 6 columnas bajo 5 encabezados (datos corridos).
+        columnas = ["Jugador", "Documento", "Estado", "Parentesco", "Principal"]
+        datos = [(f["jugador"], f["documento"], f["estado"], f["parentesco"],
+                  "✓" if f["acudiente_principal"] else "") for f in jugadores]
+        ft, _ = hacer_tabla(win, columnas, datos, altura=10)
         ft.pack(fill="both", expand=True, padx=16, pady=8)
 
     def _form_nuevo(self):
         FormTutor(self, on_save=self.cargar)
 
     def _editar(self):
-        v = self._seleccionado()
-        if v:
-            FormTutor(self, id_tutor=v[0], on_save=self.cargar)
+        t = self._seleccionado()
+        if t:
+            FormTutor(self, id_tutor=t.id_tutor, on_save=self.cargar)
 
-    def _eliminar(self):
-        v = self._seleccionado()
-        if not v:
+    def _dar_de_baja(self):
+        t = self._seleccionado()
+        if not t:
             return
-        if confirmar(f"¿ELIMINAR al tutor '{v[1]} {v[2]}'?\n"
-                     "Solo posible si no tiene jugadores a cargo."):
+        if confirmar(f"¿Dar de baja al tutor '{t.nombre_completo}'?\n"
+                     "Solo es posible si no tiene jugadores activos a cargo.\n"
+                     "El registro se conserva como INACTIVO."):
             try:
-                crud.delete_tutor(v[0])
-                mostrar_info("Tutor eliminado.")
+                servicios.tutores.inactivar(t.id_tutor)
+                mostrar_info("Tutor dado de baja (inactivado, no eliminado).")
                 self.cargar()
             except Exception as e:
                 mostrar_error(e)
@@ -819,30 +792,28 @@ class FormTutor(ctk.CTkToplevel):
         boton(bf, "Cancelar", self.destroy, color=ROJO).pack(side="left", padx=8)
 
     def _cargar(self):
+        # Antes: se descargaba la tabla TUTOR completa y se recorría en Python (P5).
         try:
-            cols, rows = crud.get_tutores()
-            for r in rows:
-                if r[0] == self.id_tutor:
-                    self.e_nombres.insert(0, r[1])
-                    self.e_apellidos.insert(0, r[2])
-                    self.e_doc.insert(0, r[3])
-                    self.e_tel.insert(0, r[4])
-                    self.e_email.insert(0, r[5])
-                    self.e_dir.insert(0, r[6])
-                    break
+            t = servicios.tutores.obtener(self.id_tutor)
         except Exception as e:
             mostrar_error(e)
+            return
+        self.e_nombres.insert(0, t.nombres)
+        self.e_apellidos.insert(0, t.apellidos)
+        self.e_doc.insert(0, t.documento)
+        self.e_tel.insert(0, t.telefono)
+        self.e_email.insert(0, t.email)
+        self.e_dir.insert(0, t.direccion)
 
     def _guardar(self):
         try:
-            n = self.e_nombres.get(); a = self.e_apellidos.get()
-            d = self.e_doc.get(); t = self.e_tel.get()
-            em = self.e_email.get(); di = self.e_dir.get()
+            datos = (self.e_nombres.get(), self.e_apellidos.get(), self.e_doc.get(),
+                     self.e_tel.get(), self.e_email.get(), self.e_dir.get())
             if self.id_tutor:
-                crud.update_tutor(self.id_tutor, n, a, d, t, em, di)
+                servicios.tutores.actualizar(self.id_tutor, *datos)
                 mostrar_info("Tutor actualizado.")
             else:
-                crud.insert_tutor(n, a, d, t, em, di)
+                servicios.tutores.registrar(*datos)
                 mostrar_info("Tutor registrado.")
             if self.on_save:
                 self.on_save()
@@ -856,9 +827,16 @@ class FormTutor(ctk.CTkToplevel):
 # ─────────────────────────────────────────────────────────────────────────────
 
 class TabProfesores(ctk.CTkFrame):
+    COLUMNAS = ["ID", "Nombres", "Apellidos", "Documento", "Teléfono",
+                "Email", "Especialidad", "Estado", "Fec. Ingreso"]
+    ANCHOS = {"ID": 40, "Nombres": 140, "Apellidos": 140, "Documento": 110,
+              "Teléfono": 120, "Email": 180, "Especialidad": 120,
+              "Estado": 80, "Fec. Ingreso": 100}
+
     def __init__(self, master):
         super().__init__(master, fg_color=GRIS_FONDO)
         self._tree = None
+        self._profesores = {}
         self._construir()
 
     def _construir(self):
@@ -868,7 +846,7 @@ class TabProfesores(ctk.CTkFrame):
                      ).pack(side="left", padx=18, pady=10)
         boton(top, "Actualizar", self.cargar, color="#555577", ancho=100).pack(side="right", padx=8, pady=8)
         boton(top, "Ver Detalle", self._ver_detalle, color=NARANJA).pack(side="right", padx=4, pady=8)
-        boton(top, "Eliminar", self._eliminar, color=ROJO).pack(side="right", padx=4, pady=8)
+        boton(top, "Dar de baja", self._dar_de_baja, color=ROJO).pack(side="right", padx=4, pady=8)
         boton(top, "Editar", self._editar, color=AZUL).pack(side="right", padx=4, pady=8)
         boton(top, "+ Registrar", self._form_nuevo).pack(side="right", padx=4, pady=8)
 
@@ -879,56 +857,42 @@ class TabProfesores(ctk.CTkFrame):
         self.cargar()
 
     def cargar(self):
-        limpiar_frame(self._area)
-        try:
-            cols, rows = crud.get_profesores()
-        except Exception as e:
-            ctk.CTkLabel(self._area, text=f"Error: {e}", text_color=ROJO).pack()
-            return
-        nombres = ["ID", "Nombres", "Apellidos", "Documento", "Teléfono",
-                   "Email", "Especialidad", "Estado", "Fec. Ingreso"]
-        anchos = {"ID": 40, "Nombres": 140, "Apellidos": 140, "Documento": 110,
-                  "Teléfono": 120, "Email": 180, "Especialidad": 120,
-                  "Estado": 80, "Fec. Ingreso": 100}
-        ft, self._tree = hacer_tabla(self._area, nombres, rows, altura=22, ancho_col=anchos)
-        ft.pack(fill="both", expand=True)
+        self._mostrar(None)
 
     def _buscar(self, cedula):
-        if not cedula.strip():
-            self.cargar()
-            return
+        self._mostrar(cedula.strip() or None)
+
+    def _mostrar(self, cedula):
         limpiar_frame(self._area)
         try:
-            cols, rows = crud.get_profesores()
-            filtrados = [r for r in rows if cedula.strip() in str(r[3])]
+            profesores = servicios.profesores.listar(cedula)
         except Exception as e:
             ctk.CTkLabel(self._area, text=f"Error: {e}", text_color=ROJO).pack()
             return
-        if not filtrados:
+        if cedula and not profesores:
             ctk.CTkLabel(self._area, text="Sin resultados para esa cédula.",
                          text_color=TEXTO_SEC, font=FONT_NORMAL).pack(pady=20)
+            self._tree = None
             return
-        nombres = ["ID", "Nombres", "Apellidos", "Documento", "Teléfono",
-                   "Email", "Especialidad", "Estado", "Fec. Ingreso"]
-        anchos = {"ID": 40, "Nombres": 140, "Apellidos": 140, "Documento": 110,
-                  "Teléfono": 120, "Email": 180, "Especialidad": 120,
-                  "Estado": 80, "Fec. Ingreso": 100}
-        ft, self._tree = hacer_tabla(self._area, nombres, filtrados, altura=22, ancho_col=anchos)
+        datos = [(p.id_profesor, p.nombres, p.apellidos, p.documento, p.telefono, p.email,
+                  p.especialidad, p.estado, _texto(p.fecha_ingreso)) for p in profesores]
+        ft, self._tree = hacer_tabla(self._area, self.COLUMNAS, datos, altura=22, ancho_col=self.ANCHOS)
         ft.pack(fill="both", expand=True)
+        self._profesores = _mapa_items(self._tree, profesores)
 
     def _seleccionado(self):
         sel = self._tree.selection() if self._tree else []
         if not sel:
             mostrar_error("Selecciona un profesor primero.")
             return None
-        return self._tree.item(sel[0])["values"]
+        return self._profesores[sel[0]]
 
     def _ver_detalle(self):
-        v = self._seleccionado()
-        if not v:
+        p = self._seleccionado()
+        if not p:
             return
         try:
-            cols, rows = crud.get_detalle_profesor(v[0])
+            profesor, plantillas = servicios.profesores.detalle(p.id_profesor)
         except Exception as e:
             mostrar_error(e)
             return
@@ -937,36 +901,42 @@ class TabProfesores(ctk.CTkFrame):
         win.geometry("680x420")
         win.configure(fg_color=GRIS_FONDO)
         win.grab_set()
-        ctk.CTkLabel(win, text=f"  {v[1]} {v[2]}", font=FONT_TITULO,
+        ctk.CTkLabel(win, text=f"  {profesor.nombre_completo}", font=FONT_TITULO,
                      text_color=VERDE).pack(pady=14)
-        ctk.CTkLabel(win, text=f"Documento: {v[3]}  |  Especialidad: {v[6] or '—'}  |  Estado: {v[7]}",
+        ctk.CTkLabel(win, text=f"Documento: {profesor.documento}  |  "
+                               f"Especialidad: {profesor.especialidad or '—'}  |  Estado: {profesor.estado}",
                      font=FONT_NORMAL, text_color=TEXTO_SEC).pack()
         ctk.CTkLabel(win, text="Plantillas a cargo", font=FONT_SUBTIT,
                      text_color=VERDE).pack(anchor="w", padx=16, pady=(10, 2))
-        nombres_c = ["Profesor", "Especialidad", "Estado", "Plantilla a cargo", "Cargo"]
-        ft, _ = hacer_tabla(win, nombres_c, rows, altura=10)
+        # Antes: VW_DetalleProfesor devolvía 6 columnas bajo 5 encabezados (datos corridos).
+        columnas = ["Plantilla", "Estado plantilla", "Cargo", "Desde"]
+        datos = [(f["nombre_plantilla"], f["estado_plantilla"], f["cargo"] or "—",
+                  _texto(f["fecha_asignacion"])) for f in plantillas]
+        ft, _ = hacer_tabla(win, columnas, datos, altura=10)
         ft.pack(fill="both", expand=True, padx=16, pady=8)
 
     def _form_nuevo(self):
         FormProfesor(self, on_save=self.cargar)
 
     def _editar(self):
-        v = self._seleccionado()
-        if v:
-            FormProfesor(self, id_profesor=v[0], on_save=self.cargar)
+        p = self._seleccionado()
+        if p:
+            FormProfesor(self, id_profesor=p.id_profesor, on_save=self.cargar)
 
-    def _eliminar(self):
-        v = self._seleccionado()
-        if not v:
+    def _dar_de_baja(self):
+        p = self._seleccionado()
+        if not p:
             return
-        if confirmar(f"¿ELIMINAR al profesor '{v[1]} {v[2]}'?\n"
-                     "Se eliminarán también sus sesiones y vínculos de plantilla."):
+        if confirmar(f"¿Dar de baja al profesor '{p.nombre_completo}'?\n"
+                     "Quedará INACTIVO: deja de aparecer en las listas de selección,\n"
+                     "pero se conservan sus sesiones, asistencias y plantillas.\n"
+                     "Puede reactivarse desde 'Editar' (estado = activo)."):
             try:
-                crud.delete_profesor(v[0])
-                mostrar_info("Profesor eliminado.")
+                servicios.profesores.inactivar(p.id_profesor)
+                mostrar_info("Profesor dado de baja (inactivado, no eliminado).")
                 self.cargar()
             except Exception as e:
-                mostrar_error(str(e))
+                mostrar_error(e)
 
 
 class FormProfesor(ctk.CTkToplevel):
@@ -994,49 +964,49 @@ class FormProfesor(ctk.CTkToplevel):
         self.e_email        = campo_form(form, "Email *", 4, ancho=280)
         self.e_especialidad = campo_form(form, "Especialidad", 5, ancho=240, placeholder="Opcional")
         self.e_fingreso     = campo_form(form, "Fec. Ingreso *", 6, placeholder="AAAA-MM-DD", ancho=180)
-        self.cb_estado      = combo_form(form, "Estado *", 7, ["activo", "inactivo"], ancho=160)
-        if self.id_profesor:
-            self.e_fingreso.configure(state="disabled")
+        self.cb_estado      = combo_form(form, "Estado *", 7, list(ESTADOS_PERSONA), ancho=160)
+        if not self.id_profesor:
+            self.cb_estado.set("activo")
         bf = ctk.CTkFrame(self, fg_color="transparent")
         bf.pack(pady=10)
         boton(bf, "Guardar", self._guardar).pack(side="left", padx=8)
         boton(bf, "Cancelar", self.destroy, color=ROJO).pack(side="left", padx=8)
 
     def _cargar(self):
+        # Antes: se descargaba la tabla PROFESOR completa y se recorría en Python (P5).
         try:
-            cols, rows = crud.get_profesores()
-            for r in rows:
-                if r[0] == self.id_profesor:
-                    self.e_nombres.insert(0, r[1])
-                    self.e_apellidos.insert(0, r[2])
-                    self.e_doc.insert(0, r[3])
-                    self.e_tel.insert(0, r[4])
-                    self.e_email.insert(0, r[5])
-                    if r[6]: self.e_especialidad.insert(0, r[6])
-                    self.e_fingreso.insert(0, str(r[8]))
-                    self.cb_estado.set(r[7])
-                    break
+            p = servicios.profesores.obtener(self.id_profesor)
         except Exception as e:
             mostrar_error(e)
+            return
+        self.e_nombres.insert(0, p.nombres)
+        self.e_apellidos.insert(0, p.apellidos)
+        self.e_doc.insert(0, p.documento)
+        self.e_tel.insert(0, p.telefono)
+        self.e_email.insert(0, p.email)
+        if p.especialidad:
+            self.e_especialidad.insert(0, p.especialidad)
+        self.e_fingreso.insert(0, _texto(p.fecha_ingreso))
+        self.e_fingreso.configure(state="disabled")
+        self.cb_estado.set(p.estado)
 
     def _guardar(self):
         try:
-            n = self.e_nombres.get(); a = self.e_apellidos.get()
-            d = self.e_doc.get(); t = self.e_tel.get()
-            em = self.e_email.get(); esp = self.e_especialidad.get() or None
-            est = self.cb_estado.get()
+            n, a = self.e_nombres.get(), self.e_apellidos.get()
+            d, t = self.e_doc.get(), self.e_tel.get()
+            em, esp = self.e_email.get(), self.e_especialidad.get()
             if self.id_profesor:
-                crud.update_profesor(self.id_profesor, n, a, d, t, em, esp, est)
+                servicios.profesores.actualizar(self.id_profesor, n, a, d, t, em, esp,
+                                                self.cb_estado.get())
                 mostrar_info("Profesor actualizado.")
             else:
-                fi = self.e_fingreso.get()
-                crud.insert_profesor(n, a, d, t, em, esp, fi)
+                servicios.profesores.registrar(n, a, d, t, em, esp, self.e_fingreso.get())
                 mostrar_info("Profesor registrado.")
-            if self.on_save: self.on_save()
+            if self.on_save:
+                self.on_save()
             self.destroy()
         except Exception as e:
             mostrar_error(e)
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # SECCIÓN 3 — PLANTILLAS 
@@ -1232,11 +1202,7 @@ class PanelGestionPlantilla(ctk.CTkFrame):
                         crud.quitar_jugador_plantilla(r[0])
 
                 # 2. Quitar de alineación guardada — tabla correcta
-                crud.ejecutar_query(
-                    "DELETE FROM PLANTILLA_ALINEACION "
-                    "WHERE id_plantilla = ? AND id_jugador = ?",
-                    (int(self.id_plantilla), int(v[1]))
-                )
+                crud.quitar_jugador_de_alineacion(self.id_plantilla, v[1])
 
                 # 3. Quitar de titulares
                 crud.quitar_jugador_plantilla(v[0])
@@ -1888,11 +1854,12 @@ class FormAsignarProfesorPlantilla(ctk.CTkToplevel):
         ctk.CTkLabel(self, text="Asignar Profesor", font=FONT_TITULO,
                      text_color=VERDE).pack(pady=12)
         try:
-            rows = crud.get_profesores_activos()
+            profesores = servicios.profesores.opciones()
         except Exception:
-            rows = []
-        self._profs = rows
-        names = [f"{r[1]}" for r in rows]
+            profesores = []
+        # Se guarda el id por etiqueta (nombre + documento): sin confusión por homónimos (P1).
+        self._profs = {p.etiqueta: p.id_profesor for p in profesores}
+        names = list(self._profs)
         form = ctk.CTkFrame(self, fg_color=GRIS_CARD, corner_radius=8)
         form.pack(fill="x", padx=20, pady=6)
         ctk.CTkLabel(form, text="Profesor *:", font=FONT_NORMAL,
@@ -1913,8 +1880,7 @@ class FormAsignarProfesorPlantilla(ctk.CTkToplevel):
         boton(bf, "Cancelar", self.destroy, color=ROJO).pack(side="left", padx=8)
 
     def _asignar(self):
-        txt = self.cb_prof.get()
-        id_prof = next((r[0] for r in self._profs if str(r[1]) == txt), None)
+        id_prof = self._profs.get(self.cb_prof.get())
         if not id_prof:
             mostrar_error("Selecciona un profesor válido.")
             return
