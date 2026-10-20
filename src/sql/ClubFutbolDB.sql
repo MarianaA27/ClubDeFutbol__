@@ -810,10 +810,12 @@ GO
 ALTER TABLE PLANTILLA_JUGADOR
     ADD tipo VARCHAR(10) NOT NULL
         CONSTRAINT DF_PJ_tipo DEFAULT 'titular';
+GO
 
 -- 2. Restricción CHECK para garantizar integridad
 ALTER TABLE PLANTILLA_JUGADOR
     ADD CONSTRAINT CK_PJ_tipo CHECK (tipo IN ('titular', 'banca'));
+GO
 
 -- 3. Verificar que quedó bien
 SELECT COLUMN_NAME, DATA_TYPE, COLUMN_DEFAULT
@@ -838,6 +840,9 @@ BEGIN
     VALUES
         (@id_plantilla, @id_jugador, @fecha, 'activo', @tipo);
 END;
+GO
+-- Corrección (Entregable 3): sin este GO, la sentencia siguiente quedaba
+-- incluida dentro del cuerpo de SP_AsignarJugadorPlantilla.
 
 
 IF OBJECT_ID('ALINEACION', 'U') IS NOT NULL
