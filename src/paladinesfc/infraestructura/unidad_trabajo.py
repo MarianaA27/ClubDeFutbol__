@@ -14,6 +14,11 @@ en UNA conexión y UNA transacción:
         uow.ejecutar("UPDATE ...", (...))
         uow.commit()            # todo o nada
 
+    # o, con los repositorios del MVP:
+    with UnidadDeTrabajoSql() as uow:
+        uow.vinculos.establecer_principal(id_jugador, id_tutor)
+        uow.commit()
+
 * Si ocurre cualquier excepción dentro del bloque → ``rollback`` automático,
   registro en la bitácora y la excepción se propaga.
 * Si el bloque termina sin llamar a ``commit()`` → ``rollback`` (nada se
@@ -63,7 +68,15 @@ class UnidadDeTrabajoSql:
         return False  # nunca se traga la excepción
 
     def _al_iniciar(self) -> None:
-        """Gancho para que las subclases o la versión con repositorios los creen."""
+        """Crea los repositorios del MVP sobre ESTA conexión/transacción."""
+        from paladinesfc.infraestructura.repositorios import (
+            RepositorioJugadoresSql, RepositorioProfesoresSql,
+            RepositorioTutoresSql, RepositorioVinculosSql,
+        )
+        self.jugadores = RepositorioJugadoresSql(self)
+        self.tutores = RepositorioTutoresSql(self)
+        self.profesores = RepositorioProfesoresSql(self)
+        self.vinculos = RepositorioVinculosSql(self)
 
     # ── transacción ────────────────────────────────────────────────────────
     def commit(self) -> None:
@@ -95,6 +108,22 @@ class UnidadDeTrabajoSql:
         else:
             self._cursor.execute(sql)
         return fila_a_dict(self._cursor)
+
+    def insertar(self, sql: str, parametros: Sequence[Any] = ()) -> int:
+        """Ejecuta un INSERT y devuelve el identificador generado.
+
+        Se usa ``SCOPE_IDENTITY()`` en el mismo lote: ``@@IDENTITY`` devolvería el
+        id de MOROSIDAD que inserta el trigger ``TR_NuevoJugador_Morosidad``, y una
+        cláusula OUTPUT sin INTO no se permite en tablas con triggers.
+        """
+        lote = f"SET NOCOUNT ON; {sql}; SELECT CAST(SCOPE_IDENTITY() AS INT) AS id;"
+        self._cursor.execute(lote, tuple(parametros))
+        while self._cursor.description is None and self._cursor.nextset():
+            pass
+        fila = self._cursor.fetchone()
+        if fila is None or fila[0] is None:
+            raise RuntimeError("No se pudo obtener el identificador del registro insertado.")
+        return int(fila[0])
 
     def escalar(self, sql: str, parametros: Sequence[Any] = ()):
         fila = self.consultar_uno(sql, parametros)
