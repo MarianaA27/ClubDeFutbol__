@@ -23,13 +23,18 @@ class CursorFalso:
         self._conexion.numero_sentencia += 1
         if self._conexion.fallar_en == self._conexion.numero_sentencia:
             raise FalloInyectado(f"Conexión perdida en la sentencia {self._conexion.numero_sentencia}")
-        self._conexion.pendientes.append((" ".join(sql.split()), tuple(parametros)))
+        sentencia = (" ".join(sql.split()), tuple(parametros))
+        self._conexion.ejecutadas.append(sentencia)
+        self._conexion.pendientes.append(sentencia)
         respuesta = self._conexion.respuestas.pop(0) if self._conexion.respuestas else ([], [])
         nombres, filas = respuesta
         self.description = [(n,) for n in nombres] if nombres else None
         self._filas = list(filas)
         self.rowcount = self._conexion.filas_afectadas
         return self
+
+    def nextset(self):
+        return False
 
     def fetchall(self):
         filas, self._filas = self._filas, []
@@ -45,8 +50,9 @@ class ConexionFalsa:
         self.respuestas = list(respuestas or [])
         self.filas_afectadas = filas_afectadas
         self.numero_sentencia = 0
-        self.pendientes = []
-        self.confirmadas = []
+        self.ejecutadas = []      # todo lo enviado al motor (para inspeccionar el SQL)
+        self.pendientes = []      # escrito pero sin commit
+        self.confirmadas = []     # lo que realmente quedaría en la base
         self.commits = 0
         self.rollbacks = 0
         self.cerrada = False
