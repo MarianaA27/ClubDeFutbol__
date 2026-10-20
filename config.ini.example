@@ -1,0 +1,10 @@
+; Copie este archivo como config.ini (no se versiona) y ajuste los valores.
+; Las variables de entorno PALADINES_DB_* tienen prioridad sobre este archivo.
+[database]
+driver = ODBC Driver 17 for SQL Server
+server = localhost
+database = ClubFutbolDB
+trusted_connection = yes
+; Si no usa autenticación de Windows, ponga trusted_connection = no y complete:
+; user = sa
+; password =
