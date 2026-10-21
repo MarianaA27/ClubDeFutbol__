@@ -1,0 +1,82 @@
+@startuml c4-3-componentes
+!include <C4/C4_Component>
+' PaladinesFC — C4 Nivel 3: Componentes del contenedor "Aplicación de escritorio"
+' (versión 1, arquitectura OBJETIVO). El MVP está resaltado en verde.
+
+LAYOUT_TOP_DOWN()
+SetDefaultLegendEntries("")
+AddElementTag("presentacion", $bgColor="#5b8fc7", $borderColor="#2f5f8a", $fontColor="#ffffff", $legendText="Presentación del MVP (pantallas migradas)")
+AddElementTag("aplicacion", $bgColor="#1f6f4a", $borderColor="#0f3d28", $fontColor="#ffffff", $legendText="Aplicación del MVP (casos de uso)")
+AddElementTag("dominio", $bgColor="#c27c0e", $borderColor="#7a4d06", $fontColor="#ffffff", $legendText="Dominio del MVP (entidades y reglas)")
+AddElementTag("infra", $bgColor="#6b4c9a", $borderColor="#3f2c5c", $fontColor="#ffffff", $legendText="Infraestructura del MVP")
+AddElementTag("legado", $bgColor="#d9d9d9", $borderColor="#9a9a9a", $fontColor="#555555", $legendText="Fuera del alcance del MVP (legado, se migrará después)")
+AddRelTag("legado", $textColor="#9a9a9a", $lineColor="#9a9a9a", $lineStyle=DashedLine(), $legendText="Dependencia legada")
+
+title PaladinesFC — Diagrama de Componentes (C4 nivel 3) — Contenedor "Aplicación de escritorio"
+
+ContainerDb(bd, "ClubFutbolDB", "SQL Server", "Tablas JUGADOR, TUTOR, JUGADOR_TUTOR, PROFESOR + resto del esquema")
+Container(log, "Bitácora", "logs/paladinesfc.log")
+
+Container_Boundary(app, "Aplicación de escritorio PaladinesFC (src/paladinesfc)") {
+
+    Boundary(capa_p, "presentacion/") {
+        Component(ui_jug, "Pantallas de Jugadores y Jugador–Tutor", "CustomTkinter", "TabJugadores, FormJugador, VentanaDetalleJugador, FormVincularTutor", $tags="presentacion")
+        Component(ui_tut, "Pantallas de Tutores", "CustomTkinter", "TabTutores, FormTutor", $tags="presentacion")
+        Component(ui_prof, "Pantallas de Profesores", "CustomTkinter", "TabProfesores, FormProfesor", $tags="presentacion")
+        Component(contenedor, "Raíz de composición", "contenedor.py", "Crea los servicios e inyecta la fábrica de unidades de trabajo", $tags="presentacion")
+        Component(ui_leg, "Pantallas legadas", "CustomTkinter", "Plantillas, Categorías, Canchas, Sesiones, Conceptos, Pagos, Morosidad, Dashboard", $tags="legado")
+    }
+
+    Boundary(capa_a, "aplicacion/") {
+        Component(s_jug, "JugadorService", "Python", "Registrar con tutor, editar, inactivar/reactivar, listar, detalle", $tags="aplicacion")
+        Component(s_vin, "VinculacionService", "Python", "Vincular, cambiar acudiente principal, desvincular", $tags="aplicacion")
+        Component(s_tut, "TutorService", "Python", "Registrar, editar, inactivar, listar, detalle", $tags="aplicacion")
+        Component(s_prof, "ProfesorService", "Python", "Registrar, editar, inactivar/reactivar, listar, detalle", $tags="aplicacion")
+        Component(puertos, "Puertos", "typing.Protocol", "Interfaces de repositorios y de la unidad de trabajo", $tags="aplicacion")
+    }
+
+    Boundary(capa_d, "dominio/") {
+        Component(ent, "Entidades", "dataclasses", "Jugador, Tutor, Profesor", $tags="dominio")
+        Component(agr, "TutoresDelJugador", "Agregado", "≥1 tutor, exactamente 1 acudiente principal, sin vínculos duplicados", $tags="dominio")
+        Component(val, "validaciones", "Python", "Fuente única de reglas: texto, documento, teléfono, email, fechas, catálogos", $tags="dominio")
+    }
+
+    Boundary(capa_i, "infraestructura/") {
+        Component(uow, "UnidadDeTrabajoSql", "pyodbc", "1 conexión y 1 transacción por operación; rollback automático y registro en bitácora", $tags="infra")
+        Component(repos, "Repositorios SQL", "pyodbc", "Jugadores, Tutores, Profesores, Vínculos. Mapeo por nombre; filtros con WHERE", $tags="infra")
+        Component(cfg, "config / conexion", "configparser", "Cadena de conexión externa", $tags="infra")
+        Component(bit, "bitacora", "logging", "Log rotativo", $tags="infra")
+    }
+
+    Boundary(capa_l, "legado/") {
+        Component(crud, "crud.py + db.py", "Python · SQL embebido", "Acceso a datos original; solo para módulos fuera del MVP", $tags="legado")
+    }
+}
+
+Rel(ui_jug, s_jug, "usa")
+Rel(ui_jug, s_vin, "usa")
+Rel(ui_tut, s_tut, "usa")
+Rel(ui_prof, s_prof, "usa")
+Rel(contenedor, uow, "fabrica unidades de trabajo")
+Rel(s_jug, puertos, "depende de")
+Rel(s_vin, puertos, "depende de")
+Rel(s_tut, puertos, "depende de")
+Rel(s_prof, puertos, "depende de")
+Rel(s_jug, ent, "crea / modifica")
+Rel(s_vin, agr, "aplica reglas")
+Rel(ent, val, "valida con")
+Rel(agr, val, "valida con")
+Rel_U(uow, puertos, "implementa")
+Rel_U(repos, puertos, "implementan")
+Rel(uow, repos, "expone")
+Rel(uow, cfg, "obtiene conexión")
+Rel(uow, bit, "registra reversiones")
+Rel(bit, log, "escribe")
+Rel(repos, bd, "SQL parametrizado", "pyodbc")
+Rel(ui_leg, crud, "usa", $tags="legado")
+Rel(crud, cfg, "cadena de conexión", $tags="legado")
+Rel(crud, bd, "SQL embebido y EXEC SP", "pyodbc", $tags="legado")
+
+SHOW_LEGEND()
+footer Regla de dependencias: presentación → aplicación → dominio; la infraestructura implementa los puertos de aplicación. El dominio no conoce pyodbc ni CustomTkinter.
+@enduml
