@@ -1,0 +1,27 @@
+@startuml c4-2-contenedores
+!include <C4/C4_Container>
+' PaladinesFC — C4 Nivel 2: Contenedores (versión 1, arquitectura OBJETIVO)
+
+LAYOUT_LEFT_RIGHT()
+AddElementTag("mvp", $bgColor="#1f6f4a", $borderColor="#0f3d28", $fontColor="#ffffff", $legendText="Contenedor que aloja el MVP re-arquitecturado")
+AddElementTag("nuevo", $bgColor="#2f5f8a", $borderColor="#1b3a57", $fontColor="#ffffff", $legendText="Nuevo en la re-arquitectura")
+AddRelTag("nuevo", $textColor="#2f5f8a", $lineColor="#2f5f8a", $legendText="Relación nueva")
+
+title PaladinesFC — Diagrama de Contenedores (C4 nivel 2) — Arquitectura objetivo
+
+Person(admin, "Administradora del club", "Única usuaria del sistema")
+
+System_Boundary(sistema, "PaladinesFC") {
+    Container(app, "Aplicación de escritorio PaladinesFC", "Python 3 · CustomTkinter · empaquetada con PyInstaller", "Monolito modular en capas: presentación → aplicación → dominio ← infraestructura. Contiene el MVP (Jugadores, Jugador–Tutor, Tutores, Profesores) y los módulos legados.", $tags="mvp")
+    ContainerDb(bd, "ClubFutbolDB", "Microsoft SQL Server (instancia local)", "15 tablas. Restricciones CHECK/UNIQUE e índices de reglas (migración 001). Trigger de morosidad y SP de los módulos legados.")
+    Container(config, "config.ini", "Archivo INI / variables de entorno PALADINES_DB_*", "Cadena de conexión externa (antes fijada en el código: SERVER=GIANY).", $tags="nuevo")
+    Container(log, "Bitácora", "Archivo de log rotativo · logs/paladinesfc.log", "Registra toda operación revertida por la unidad de trabajo y su causa.", $tags="nuevo")
+}
+
+Rel(admin, app, "Usa", "Ventanas y formularios")
+Rel(app, bd, "Lee y escribe; 1 transacción por operación de negocio", "pyodbc · ODBC Driver 17 · TDS")
+Rel(app, config, "Lee la configuración de conexión al iniciar", "configparser", $tags="nuevo")
+Rel(app, log, "Escribe fallos y reversiones", "logging", $tags="nuevo")
+
+SHOW_LEGEND()
+@enduml

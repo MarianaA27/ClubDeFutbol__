@@ -1,0 +1,23 @@
+@startuml c4-1-contexto
+!include <C4/C4_Context>
+' PaladinesFC — C4 Nivel 1: Contexto (versión 1, arquitectura OBJETIVO)
+' Editable: este archivo. Exportar: java -jar plantuml.jar -tpng -tsvg *.puml
+
+LAYOUT_TOP_DOWN()
+AddElementTag("mvp", $bgColor="#1f6f4a", $borderColor="#0f3d28", $fontColor="#ffffff", $legendText="Sistema que contiene el MVP re-arquitecturado")
+
+title PaladinesFC — Diagrama de Contexto (C4 nivel 1) — Arquitectura objetivo
+
+Person(admin, "Administradora del club", "Propietaria del club de fútbol formativo. Única usuaria del sistema: registra jugadores, acudientes, cuerpo técnico, plantillas, sesiones y pagos.")
+Person_Ext(tutor, "Tutor / acudiente", "Padre, madre o responsable del jugador (menor de edad). No usa el sistema: entrega sus datos y pagos a la administradora.")
+Person_Ext(profesor, "Profesor / entrenador", "Cuerpo técnico. No usa el sistema; sus datos y sesiones los registra la administradora.")
+
+System(paladines, "PaladinesFC", "Aplicación de escritorio para la gestión del club. MVP de la re-arquitectura: Jugadores, Jugador–Tutor, Tutores y Profesores.", $tags="mvp")
+
+Rel(admin, paladines, "Registra, consulta, edita y da de baja (inactivación lógica)", "Interfaz gráfica de escritorio")
+Rel_Up(tutor, admin, "Entrega datos de contacto, parentesco y pagos", "En persona")
+Rel_Up(profesor, admin, "Informa sesiones y asistencia", "En persona")
+
+SHOW_LEGEND()
+footer Sin integraciones externas: no consume APIs ni servicios en la nube. Entregable 3 — Arquitectura de Sistemas — Universidad Católica Luis Amigó
+@enduml
