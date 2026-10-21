@@ -1,0 +1,29 @@
+@startuml despliegue
+!include <C4/C4_Deployment>
+' PaladinesFC — Diagrama de despliegue (versión 1, arquitectura OBJETIVO)
+
+LAYOUT_TOP_DOWN()
+AddElementTag("mvp", $bgColor="#1f6f4a", $borderColor="#0f3d28", $fontColor="#ffffff", $legendText="Contiene el MVP")
+
+title PaladinesFC — Diagrama de despliegue — Arquitectura objetivo
+
+Deployment_Node(pc, "Equipo del club", "PC con Windows 10/11 (único equipo, monousuario)") {
+    Deployment_Node(carpeta, "Carpeta de instalación", "C:\\PaladinesFC") {
+        Container(exe, "ClubFutbol.exe", "Python 3 + CustomTkinter empaquetado con PyInstaller (o python run.py en desarrollo)", "Aplicación de escritorio en capas con el MVP re-arquitecturado", $tags="mvp")
+        Container(cfg, "config.ini", "INI", "Servidor, base de datos y tipo de autenticación")
+        Container(log, "logs/paladinesfc.log", "Archivo rotativo", "Bitácora de fallos")
+    }
+    Deployment_Node(odbc, "Microsoft ODBC Driver 17 for SQL Server", "Controlador del sistema operativo")
+    Deployment_Node(sql, "Microsoft SQL Server Express", "Instancia local (p. ej. .\\SQLEXPRESS)") {
+        ContainerDb(bd, "ClubFutbolDB", "Base de datos", "Esquema base + migraciones versionadas en src/sql/migraciones")
+    }
+}
+
+Rel(exe, cfg, "lee al iniciar")
+Rel(exe, log, "escribe")
+Rel_R(exe, odbc, "usa vía pyodbc")
+Rel(odbc, bd, "TDS sobre memoria compartida / TCP 1433 local")
+
+SHOW_LEGEND()
+footer Sin servidores remotos ni nube. Respaldo recomendado: copia de seguridad programada de ClubFutbolDB.
+@enduml
