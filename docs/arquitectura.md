@@ -118,6 +118,88 @@ Las fuentes editables (`.puml`) están en [`diagramas/fuentes/`](diagramas/fuent
 | [0004](adr/0004-fuente-unica-de-reglas-de-negocio.md) | P4 | Reglas en el dominio; una sola vía de escritura; índices únicos como defensa | `_validar_*`, `update_jugador`, `update_profesor`, `SP_ActualizarProfesor` | Mantenibilidad · Consistencia |
 | [0005](adr/0005-repositorios-y-filtrado-en-sql.md) | P5 | Repositorios con `WHERE`; ninguna pantalla ejecuta SQL | Búsquedas y `_cargar` de `App.py`, `PanelGestionPlantilla._quitar_jugador` | Mantenibilidad · Eficiencia |
 
-## 6. Escenarios de calidad
+## 6. Escenarios de calidad (actualización de la Semana 8)
 
-_En construcción: se actualizan a partir de los escenarios de la Semana 8._
+Se conservan los tres escenarios priorizados en la Semana 8 (Mantenibilidad,
+Confiabilidad, Seguridad). Se corrigen tres puntos detectados al revisar el código y se
+agrega un escenario secundario de Eficiencia.
+
+**Cambios respecto a la Semana 8**
+
+1. **E1:** la medida "dos archivos como máximo" no era alcanzable: agregar un campo exige
+   tocar el esquema, la entidad, el repositorio y la pantalla. Se reemplaza por "un archivo
+   por capa y ninguno fuera del módulo Jugadores".
+2. **E3:** se precisa qué ocurre con las plantillas del profesor dado de baja: sus
+   asignaciones se conservan como historial y deja de aparecer en las listas de selección.
+3. **Atributos del Entregable 1 que no tenían escenario:** la *consistencia* queda cubierta por
+   E1 y E2 (ADR-0004) y la *eficiencia* pasa a un escenario secundario E4 (ADR-0005), para
+   mantener la trazabilidad con el Entregable 1.
+
+### E1 — Mantenibilidad: agregar un campo a Jugador
+
+| Elemento | Descripción |
+|---|---|
+| Fuente | Integrante del equipo de desarrollo, a petición de la propietaria |
+| Estímulo | Agregar "entidad de salud (EPS)" al jugador: capturarlo al registrar, editarlo y verlo en el listado |
+| Entorno | Tiempo de desarrollo, sistema en operación normal |
+| Artefacto | Entidad `Jugador`, `RepositorioJugadoresSql`, pantallas de Jugadores, migración nueva |
+| Respuesta | Se agrega el atributo a la entidad (con su validación), la columna al repositorio y a una migración, y el campo a la pantalla. Ningún otro módulo cambia. Ninguna pantalla lee el dato por posición |
+| Medida | **Máximo 4 archivos, uno por capa** (migración, `dominio/jugador.py`, `repositorios/jugadores.py`, `presentacion/app.py`), en menos de 4 horas. Cero accesos por índice. 100 % de las pruebas existentes pasan sin cambios |
+
+### E2 — Confiabilidad: fallo durante el cambio de acudiente principal
+
+| Elemento | Descripción |
+|---|---|
+| Fuente | Fallo externo: caída de la instancia de SQL Server o de la conexión |
+| Estímulo | La conexión se pierde después del primer `UPDATE` (desmarcar) y antes del segundo (marcar) |
+| Entorno | Operación normal, desde la ventana de detalle del jugador |
+| Artefacto | `VinculacionService.cambiar_principal`, `UnidadDeTrabajoSql`, tabla `JUGADOR_TUTOR` |
+| Respuesta | La operación completa se revierte; el jugador conserva su acudiente principal; la usuaria ve un mensaje comprensible; el fallo queda en la bitácora |
+| Medida | Cero estados parciales en 10 inyecciones controladas de fallo; 100 % de los fallos registrados en la bitácora. **Verificado** por `tests/test_unidad_trabajo.py` |
+
+### E3 — Seguridad: baja de un profesor con historial
+
+| Elemento | Descripción |
+|---|---|
+| Fuente | La propietaria del club |
+| Estímulo | Dar de baja a un profesor con 12 sesiones dirigidas (con asistencia) y 2 plantillas asignadas |
+| Entorno | Operación normal, cierre de temporada |
+| Artefacto | `ProfesorService.inactivar`, tablas `PROFESOR`, `SESION`, `SESION_JUGADOR`, `PLANTILLA_PROFESOR` |
+| Respuesta | El profesor pasa a `inactivo`; deja de aparecer en los desplegables de asignación; sus sesiones, asistencias y asignaciones a plantillas se conservan y siguen mostrando su nombre; reactivarlo restituye su disponibilidad sin reingresar datos |
+| Medida | Conteo de filas de `SESION`, `SESION_JUGADOR` y `PLANTILLA_PROFESOR` idéntico antes y después; cero filas huérfanas; ausente del 100 % de los desplegables; reportes de asistencia con los mismos totales |
+
+### E4 (secundario) — Eficiencia: buscar y editar un registro
+
+| Elemento | Descripción |
+|---|---|
+| Fuente | La administradora |
+| Estímulo | Busca un jugador, tutor o profesor por cédula, o abre su formulario de edición |
+| Entorno | Operación normal, con la base creciendo cada temporada |
+| Artefacto | Repositorios SQL del MVP |
+| Respuesta | El filtro se resuelve en el motor (`WHERE`) y la edición recupera una sola fila |
+| Medida | Edición: exactamente 1 fila transferida (antes: la tabla completa). Búsqueda: solo las filas que coinciden. Reducción de filas transferidas por edición ≥ 90 % con 50 o más registros |
+
+## 7. Estado de implementación
+
+| Decisión | Estado | Evidencia verificable |
+|---|---|---|
+| ADR-0001 | Implementada en las pantallas y repositorios del MVP | `tests/test_mapeo.py`, `tests/test_presentacion_humo.py` |
+| ADR-0002 | Implementada y probada | `tests/test_unidad_trabajo.py` (10 inyecciones de fallo), `tests/test_config.py` |
+| ADR-0003 | Implementada en código; migración 001 lista; protocolo con datos reales pendiente | `tests/test_servicios.py`, `src/sql/migraciones/001_inactivacion_logica.sql` |
+| ADR-0004 | Implementada en el dominio y los servicios | `tests/test_validaciones.py`, `tests/test_dominio_personas.py`, `tests/test_vinculo_reglas.py` |
+| ADR-0005 | Implementada en el MVP | `tests/test_repositorios.py` |
+
+**Pruebas:** `python -m pytest` ejecuta 75 pruebas sin necesidad de SQL Server.
+
+## 8. Riesgos y pendientes hacia la Semana 15
+
+| Riesgo / pendiente | Mitigación | Semana |
+|---|---|---|
+| Las pruebas actuales usan dobles en memoria; falta probar los repositorios contra SQL Server real | Pruebas de integración sobre una copia de `ClubFutbolDB` | 14 |
+| La migración 001 modifica el esquema en el equipo del club | Copia de seguridad, script idempotente con verificación final, ensayo en copia | 14 |
+| Protocolo de preservación del historial (Entregable 1, §3.5) sin ejecutar | Ejecutarlo con datos representativos y documentar resultados | 14 |
+| Medición antes/después (filas transferidas, tiempos) para E4 | Script de medición sobre ambas versiones | 15 |
+| Código legado con funciones duplicadas y sin uso | Limpieza en `legado/crud.py` sin cambiar comportamiento | 15 |
+| Diagramas C4 versión 2 e informe final | Actualizar vistas con lo implementado | 15 |
+
+El detalle de tareas está en [`plan/backlog-semana-15.md`](plan/backlog-semana-15.md) y en el tablero del repositorio.

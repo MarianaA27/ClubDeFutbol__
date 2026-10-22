@@ -74,6 +74,7 @@ pip install -r requirements.txt
 
 # 2. Base de datos (en SSMS, en este orden)
 #    src/sql/ClubFutbolDB.sql
+#    src/sql/migraciones/001_inactivacion_logica.sql   (hacer copia de seguridad antes)
 
 # 3. Configuración de la conexión
 copy config.ini.example config.ini
@@ -86,3 +87,28 @@ python run.py
 También se puede configurar la conexión con variables de entorno
 (`PALADINES_DB_SERVER`, `PALADINES_DB_DATABASE`, `PALADINES_DB_TRUSTED`,
 `PALADINES_DB_USER`, `PALADINES_DB_PASSWORD`), que tienen prioridad sobre `config.ini`.
+
+Los fallos de las operaciones del MVP se registran en `logs/paladinesfc.log`.
+
+### Pruebas
+
+```bash
+python -m pytest
+```
+
+Las 75 pruebas usan dobles en memoria, así que corren en cualquier equipo, sin SQL
+Server ni pantalla. Entre ellas está la verificación del escenario de Confiabilidad:
+10 fallos inyectados a mitad de "cambiar acudiente principal" sin estados parciales
+(`tests/test_unidad_trabajo.py`).
+
+## Estado
+
+| Decisión | Estado |
+|---|---|
+| ADR-0001 Entidades y mapeo por nombre | Implementada en el MVP |
+| ADR-0002 Unidad de trabajo transaccional | Implementada y probada |
+| ADR-0003 Inactivación lógica | Implementada; migración 001 lista para aplicar |
+| ADR-0004 Fuente única de reglas | Implementada en el MVP |
+| ADR-0005 Repositorios con filtrado en SQL | Implementada en el MVP |
+
+Tareas pendientes hacia la Semana 15: [`docs/plan/backlog-semana-15.md`](docs/plan/backlog-semana-15.md).
