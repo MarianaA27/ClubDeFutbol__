@@ -1,0 +1,181 @@
+{
+  "E2": {
+    "repeticiones": 10,
+    "parciales_antes": 10,
+    "parciales_despues": 0
+  },
+  "E3": {
+    "antes": {
+      "perdidas_baja_profesor": {
+        "SESION": 12,
+        "SESION_JUGADOR": 36,
+        "PLANTILLA_PROFESOR": 2,
+        "PLANTILLA_JUGADOR": 0,
+        "PAGO": 0,
+        "MOROSIDAD": 0,
+        "JUGADOR_TUTOR": 0
+      },
+      "perdidas_baja_jugador": {
+        "SESION": 0,
+        "SESION_JUGADOR": 2,
+        "PLANTILLA_PROFESOR": 0,
+        "PLANTILLA_JUGADOR": 0,
+        "PAGO": 3,
+        "MOROSIDAD": 1,
+        "JUGADOR_TUTOR": 1
+      },
+      "profesor_existe": false,
+      "error_jugador_con_pago_de_mora": null
+    },
+    "despues": {
+      "perdidas_baja_profesor": {
+        "SESION": 0,
+        "SESION_JUGADOR": 0,
+        "PLANTILLA_PROFESOR": 0,
+        "PLANTILLA_JUGADOR": 0,
+        "PAGO": 0,
+        "MOROSIDAD": 0,
+        "JUGADOR_TUTOR": 0
+      },
+      "perdidas_baja_jugador": {
+        "SESION": 0,
+        "SESION_JUGADOR": 0,
+        "PLANTILLA_PROFESOR": 0,
+        "PLANTILLA_JUGADOR": 0,
+        "PAGO": 0,
+        "MOROSIDAD": 0,
+        "JUGADOR_TUTOR": 0
+      },
+      "perdidas_jugador_con_pago_de_mora": {
+        "SESION": 0,
+        "SESION_JUGADOR": 0,
+        "PLANTILLA_PROFESOR": 0,
+        "PLANTILLA_JUGADOR": 0,
+        "PAGO": 0,
+        "MOROSIDAD": 0,
+        "JUGADOR_TUTOR": 0
+      },
+      "profesor_existe": true,
+      "profesor_en_desplegables": false
+    }
+  },
+  "E4": [
+    {
+      "registros": 50,
+      "entidad": "Tutores",
+      "busqueda_filas_antes": 50,
+      "busqueda_filas_despues": 1,
+      "busqueda_ms_antes": 7.24,
+      "busqueda_ms_despues": 6.86,
+      "edicion_filas_antes": 50,
+      "edicion_filas_despues": 1,
+      "edicion_ms_antes": 6.75,
+      "edicion_ms_despues": 6.79,
+      "mismo_resultado": true
+    },
+    {
+      "registros": 50,
+      "entidad": "Jugadores",
+      "busqueda_filas_antes": 50,
+      "busqueda_filas_despues": 1,
+      "busqueda_ms_antes": 7.9,
+      "busqueda_ms_despues": 6.71,
+      "edicion_filas_antes": 50,
+      "edicion_filas_despues": 1,
+      "edicion_ms_antes": 7.42,
+      "edicion_ms_despues": 6.39,
+      "mismo_resultado": true
+    },
+    {
+      "registros": 50,
+      "entidad": "Profesores",
+      "busqueda_filas_antes": 50,
+      "busqueda_filas_despues": 1,
+      "busqueda_ms_antes": 6.75,
+      "busqueda_ms_despues": 6.5,
+      "edicion_filas_antes": 50,
+      "edicion_filas_despues": 1,
+      "edicion_ms_antes": 6.6,
+      "edicion_ms_despues": 6.26,
+      "mismo_resultado": true
+    },
+    {
+      "registros": 500,
+      "entidad": "Tutores",
+      "busqueda_filas_antes": 500,
+      "busqueda_filas_despues": 1,
+      "busqueda_ms_antes": 8.82,
+      "busqueda_ms_despues": 7.56,
+      "edicion_filas_antes": 500,
+      "edicion_filas_despues": 1,
+      "edicion_ms_antes": 8.47,
+      "edicion_ms_despues": 6.62,
+      "mismo_resultado": true
+    },
+    {
+      "registros": 500,
+      "entidad": "Jugadores",
+      "busqueda_filas_antes": 500,
+      "busqueda_filas_despues": 1,
+      "busqueda_ms_antes": 10.77,
+      "busqueda_ms_despues": 7.16,
+      "edicion_filas_antes": 500,
+      "edicion_filas_despues": 1,
+      "edicion_ms_antes": 10.18,
+      "edicion_ms_despues": 6.32,
+      "mismo_resultado": true
+    },
+    {
+      "registros": 500,
+      "entidad": "Profesores",
+      "busqueda_filas_antes": 500,
+      "busqueda_filas_despues": 1,
+      "busqueda_ms_antes": 8.81,
+      "busqueda_ms_despues": 6.8,
+      "edicion_filas_antes": 500,
+      "edicion_filas_despues": 1,
+      "edicion_ms_antes": 8.71,
+      "edicion_ms_despues": 6.28,
+      "mismo_resultado": true
+    },
+    {
+      "registros": 2000,
+      "entidad": "Tutores",
+      "busqueda_filas_antes": 2000,
+      "busqueda_filas_despues": 1,
+      "busqueda_ms_antes": 16.05,
+      "busqueda_ms_despues": 8.23,
+      "edicion_filas_antes": 2000,
+      "edicion_filas_despues": 1,
+      "edicion_ms_antes": 14.63,
+      "edicion_ms_despues": 6.61,
+      "mismo_resultado": true
+    },
+    {
+      "registros": 2000,
+      "entidad": "Jugadores",
+      "busqueda_filas_antes": 2000,
+      "busqueda_filas_despues": 1,
+      "busqueda_ms_antes": 21.85,
+      "busqueda_ms_despues": 11.04,
+      "edicion_filas_antes": 2000,
+      "edicion_filas_despues": 1,
+      "edicion_ms_antes": 21.44,
+      "edicion_ms_despues": 6.46,
+      "mismo_resultado": true
+    },
+    {
+      "registros": 2000,
+      "entidad": "Profesores",
+      "busqueda_filas_antes": 2000,
+      "busqueda_filas_despues": 1,
+      "busqueda_ms_antes": 16.24,
+      "busqueda_ms_despues": 8.11,
+      "edicion_filas_antes": 2000,
+      "edicion_filas_despues": 1,
+      "edicion_ms_antes": 16.2,
+      "edicion_ms_despues": 6.32,
+      "mismo_resultado": true
+    }
+  ]
+}
