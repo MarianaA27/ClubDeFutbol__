@@ -821,6 +821,10 @@ GO
 SELECT COLUMN_NAME, DATA_TYPE, COLUMN_DEFAULT
 FROM INFORMATION_SCHEMA.COLUMNS
 WHERE TABLE_NAME = 'PLANTILLA_JUGADOR' AND COLUMN_NAME = 'tipo';
+GO
+-- Corrección (entrega final): sin este GO, CREATE OR ALTER PROCEDURE no era la primera
+-- sentencia del lote y SQL Server rechazaba la actualización de SP_AsignarJugadorPlantilla.
+-- Lo detectaron las pruebas de integración (tests/integracion/).
 
 -- ============================================================
 -- ACTUALIZAR SP_AsignarJugadorPlantilla para aceptar @tipo
