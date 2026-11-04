@@ -8,6 +8,7 @@ logs/
 build/
 dist/
 *.spec
+!ClubFutbol.spec
 .pytest_cache/
 .vscode/
 .idea/

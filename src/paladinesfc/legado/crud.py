@@ -1,5 +1,15 @@
+"""
+Acceso a datos LEGADO de los módulos que aún no se migran (Plantillas, Categorías,
+Canchas, Sesiones, Conceptos, Pagos, Morosidad y Dashboard).
+
+Limpieza de la entrega final (issue #19): se retiraron las 39 funciones que ya no
+usaba ninguna pantalla —todas las de Jugadores, Jugador–Tutor, Tutores y Profesores,
+que ahora pasan por los servicios del MVP, y otras sin uso desde el sistema
+original— y las primeras definiciones duplicadas de ``guardar_alineacion`` y
+``get_alineacion`` (Python siempre usaba la segunda). El comportamiento de los
+módulos legados no cambia.
+"""
 from paladinesfc.legado.db import ejecutar_query
-import re
 from datetime import datetime
 
 
@@ -19,30 +29,6 @@ def _validar_fecha(valor, campo="Fecha"):
 def _validar_requerido(valor, campo):
     if not valor or not str(valor).strip():
         raise ValueError(f"El campo '{campo}' es obligatorio.")
-
-
-def _validar_solo_texto(valor, campo):
-    _validar_requerido(valor, campo)
-    if not re.match(r"^[A-Za-zÁÉÍÓÚáéíóúÑñÜü\s\-']+$", valor.strip()):
-        raise ValueError(f"'{campo}' solo debe contener letras y espacios.")
-
-
-def _validar_documento(valor, campo="Documento"):
-    _validar_requerido(valor, campo)
-    if not re.match(r"^\d{5,15}$", str(valor).strip()):
-        raise ValueError(f"'{campo}' debe contener entre 5 y 15 dígitos numéricos.")
-
-
-def _validar_telefono(valor, campo="Teléfono"):
-    if valor and str(valor).strip():
-        if not re.match(r"^[+]?\d{7,15}$", str(valor).strip()):
-            raise ValueError(f"'{campo}' inválido. Ej: 3001234567 o +573001234567.")
-
-
-def _validar_email(valor, campo="Email"):
-    if valor and str(valor).strip():
-        if not re.match(r"^[\w\.\+\-]+@[\w\-]+\.[a-zA-Z]{2,}$", str(valor).strip()):
-            raise ValueError(f"'{campo}' no tiene un formato válido (ej: nombre@correo.com).")
 
 
 def _validar_numero_entero_positivo(valor, campo, obligatorio=False):
@@ -70,28 +56,10 @@ def _validar_decimal_positivo(valor, campo):
         raise ValueError(f"'{campo}' debe ser un número positivo (ej: 150000 o 75000.50).")
 
 
-def _documento_existe(tabla, id_col, documento, excluir_id=None):
-    q = f"SELECT {id_col} FROM {tabla} WHERE documento = ?"
-    _, rows = ejecutar_query(q, (str(documento).strip(),), fetch=True)
-    if excluir_id:
-        rows = [r for r in rows if r[0] != excluir_id]
-    return len(rows) > 0
-
-
 # ─────────────────────────────────────────────────────────────────────────────
-# SECCIÓN 1 — JUGADORES
+# SECCIÓN 1 — Listas de selección que usan los módulos legados
+# (Jugadores, Jugador–Tutor, Tutores y Profesores ya usan los servicios del MVP)
 # ─────────────────────────────────────────────────────────────────────────────
-
-def get_jugadores():
-    q = """
-    SELECT id_jugador, nombres, apellidos, documento,
-           fecha_nacimiento, numero_preferido, talla_uniforme,
-           estado, fecha_ingreso, observaciones
-    FROM JUGADOR
-    ORDER BY apellidos, nombres
-    """
-    return ejecutar_query(q, fetch=True)
-
 
 def get_jugadores_activos():
     cols, rows = ejecutar_query(
@@ -102,415 +70,6 @@ def get_jugadores_activos():
     return rows
 
 
-def get_jugadores_con_tutor():
-    q = """
-    SELECT
-        j.id_jugador,
-        j.nombres + ' ' + j.apellidos              AS jugador,
-        j.documento,
-        j.estado,
-        j.fecha_nacimiento,
-        j.talla_uniforme,
-        ISNULL(t.nombres + ' ' + t.apellidos, 'Sin tutor') AS tutor_principal,
-        ISNULL(jt.parentesco, '-')                          AS parentesco,
-        ISNULL(t.telefono, '-')                             AS telefono_tutor
-    FROM JUGADOR j
-    LEFT JOIN JUGADOR_TUTOR jt
-        ON j.id_jugador = jt.id_jugador AND jt.acudiente_principal = 1
-    LEFT JOIN TUTOR t
-        ON jt.id_tutor = t.id_tutor
-    ORDER BY j.apellidos, j.nombres
-    """
-    return ejecutar_query(q, fetch=True)
-
-
-def get_detalle_jugador(id_jugador):
-    q = """
-    SELECT
-        id_jugador, nombres, apellidos, documento,
-        fecha_nacimiento, numero_preferido, talla_uniforme,
-        estado, fecha_ingreso, observaciones
-    FROM JUGADOR
-    WHERE id_jugador = ?
-    """
-    return ejecutar_query(q, (int(id_jugador),), fetch=True)
-
-
-def get_detalle_jugador_completo(id_jugador):
-    id_jugador = int(id_jugador)
-
-    datos = ejecutar_query(
-        """
-        SELECT id_jugador, nombres, apellidos, documento,
-               fecha_nacimiento, numero_preferido, talla_uniforme,
-               estado, fecha_ingreso, observaciones
-        FROM JUGADOR WHERE id_jugador = ?
-        """,
-        (id_jugador,), fetch=True
-    )
-
-    tutores = ejecutar_query(
-        """
-        SELECT
-            jt.id_jugador_tutor,
-            t.id_tutor,
-            t.nombres + ' ' + t.apellidos AS tutor,
-            t.telefono,
-            t.email,
-            jt.parentesco,
-            jt.acudiente_principal
-        FROM JUGADOR_TUTOR jt
-        INNER JOIN TUTOR t ON jt.id_tutor = t.id_tutor
-        WHERE jt.id_jugador = ?
-        ORDER BY jt.acudiente_principal DESC, t.apellidos
-        """,
-        (id_jugador,), fetch=True
-    )
-
-    plantillas = ejecutar_query(
-        """
-        SELECT
-            p.id_plantilla,
-            p.nombre_plantilla,
-            c.nombre_categoria,
-            p.temporada,
-            p.estado,
-            pj.fecha_asignacion
-        FROM PLANTILLA_JUGADOR pj
-        INNER JOIN PLANTILLA p ON pj.id_plantilla = p.id_plantilla
-        INNER JOIN CATEGORIA c ON p.id_categoria  = c.id_categoria
-        WHERE pj.id_jugador = ? AND pj.estado = 'activo'
-        ORDER BY c.nombre_categoria, p.nombre_plantilla
-        """,
-        (id_jugador,), fetch=True
-    )
-
-    return datos, tutores, plantillas
-
-
-def _validar_jugador(nombres, apellidos, documento, fecha_nac, num_pref,
-                     talla, estado, fecha_ing, excluir_id=None):
-    _validar_solo_texto(nombres, "Nombres")
-    _validar_solo_texto(apellidos, "Apellidos")
-    _validar_documento(documento)
-    _validar_fecha(fecha_nac, "Fecha de nacimiento")
-    _validar_fecha(fecha_ing, "Fecha de ingreso")
-
-    fn = datetime.strptime(fecha_nac.strip(), "%Y-%m-%d")
-    fi = datetime.strptime(fecha_ing.strip(), "%Y-%m-%d")
-
-    if fn >= datetime.today():
-        raise ValueError("La fecha de nacimiento debe ser anterior a hoy.")
-    if fi <= fn:
-        raise ValueError("La fecha de ingreso debe ser posterior a la fecha de nacimiento.")
-
-    if num_pref:
-        _validar_numero_entero_positivo(num_pref, "Número preferido")
-
-    _validar_requerido(talla, "Talla uniforme")
-    tallas_validas = ["XS", "S", "M", "L", "XL", "XXL"]
-    if str(talla).strip().upper() not in tallas_validas:
-        raise ValueError(f"Talla inválida. Opciones: {', '.join(tallas_validas)}.")
-
-    estados_validos = ["activo", "inactivo", "lesionado"]
-    if estado not in estados_validos:
-        raise ValueError(f"Estado inválido. Opciones: {', '.join(estados_validos)}.")
-
-    if _documento_existe("JUGADOR", "id_jugador", documento, excluir_id):
-        raise ValueError(f"Ya existe un jugador con el documento '{documento}'.")
-
-
-def insert_jugador_con_tutor(nombres, apellidos, documento, fecha_nac, num_pref,
-                              talla, fecha_ing, obs, id_tutor, parentesco,
-                              acudiente_principal):
-    _validar_jugador(nombres, apellidos, documento, fecha_nac,
-                     num_pref, talla, "activo", fecha_ing)
-    _validar_requerido(parentesco, "Parentesco")
-    _validar_requerido(id_tutor, "Tutor")
-
-    ejecutar_query(
-        "EXEC SP_InsertarJugadorTutor ?,?,?,?,?,?,?,?,?,?,?",
-        (
-            nombres.strip(),
-            apellidos.strip(),
-            documento.strip(),
-            fecha_nac.strip(),
-            int(num_pref) if num_pref and str(num_pref).strip() else None,
-            str(talla).strip().upper(),
-            fecha_ing.strip(),
-            obs.strip() if obs else None,
-            int(id_tutor),
-            parentesco.strip(),
-            1 if acudiente_principal else 0,
-        )
-    )
-
-
-def update_jugador(id_j, nombres, apellidos, num_pref, talla, estado, obs):
-    _validar_solo_texto(nombres, "Nombres")
-    _validar_solo_texto(apellidos, "Apellidos")
-
-    if num_pref:
-        _validar_numero_entero_positivo(num_pref, "Número preferido")
-
-    _validar_requerido(talla, "Talla uniforme")
-    tallas_validas = ["XS", "S", "M", "L", "XL", "XXL"]
-    if str(talla).strip().upper() not in tallas_validas:
-        raise ValueError(f"Talla inválida. Opciones: {', '.join(tallas_validas)}.")
-
-    estados_validos = ["activo", "inactivo", "lesionado"]
-    if estado not in estados_validos:
-        raise ValueError(f"Estado inválido. Opciones: {', '.join(estados_validos)}.")
-
-    ejecutar_query(
-        "EXEC SP_ActualizarJugador ?,?,?,?,?,?,?",
-        (
-            int(id_j),
-            nombres.strip(),
-            apellidos.strip(),
-            int(num_pref) if num_pref and str(num_pref).strip() else None,
-            str(talla).strip().upper(),
-            estado,
-            obs.strip() if obs else None,
-        )
-    )
-
-
-def delete_jugador(id_j):
-    """
-    Borrado físico completo mediante SP_EliminarJugador.
-    El SP elimina en cascada: SESION_JUGADOR → PLANTILLA_JUGADOR →
-    MOROSIDAD → PAGO → JUGADOR_TUTOR → JUGADOR.
-
-    Si el jugador tiene plantillas activas, se bloquea antes de llamar al SP
-    para dar un mensaje claro al usuario.
-    """
-    id_j = int(id_j)
-
-    _, rows = ejecutar_query(
-        "SELECT COUNT(*) FROM PLANTILLA_JUGADOR WHERE id_jugador = ? AND estado = 'activo'",
-        (id_j,), fetch=True
-    )
-    if rows[0][0] > 0:
-        raise ValueError(
-            "El jugador tiene plantillas activas. "
-            "Retíralo de todas las plantillas antes de eliminarlo."
-        )
-
-    ejecutar_query("EXEC SP_EliminarJugador ?", (id_j,))
-
-
-def insert_jugador_en_plantilla(nombres, apellidos, documento, fecha_nac,
-                                 num_pref, talla, fecha_ing, obs,
-                                 id_tutor, parentesco, id_plantilla, fecha_asignacion):
-    insert_jugador_con_tutor(nombres, apellidos, documento, fecha_nac,
-                              num_pref, talla, fecha_ing, obs,
-                              id_tutor, parentesco, True)
-
-    _, rows = ejecutar_query(
-        "SELECT id_jugador FROM JUGADOR WHERE documento = ?",
-        (str(documento).strip(),), fetch=True
-    )
-    if not rows:
-        raise ValueError("No se pudo obtener el ID del jugador recién creado.")
-
-    id_jugador = rows[0][0]
-    asignar_jugador_plantilla(id_plantilla, id_jugador, fecha_asignacion)
-    return id_jugador
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# SECCIÓN 1 — RELACIÓN JUGADOR ↔ TUTOR
-# ─────────────────────────────────────────────────────────────────────────────
-
-def get_tutores_de_jugador(id_jugador):
-    q = """
-    SELECT
-        jt.id_jugador_tutor,
-        t.id_tutor,
-        t.nombres + ' ' + t.apellidos AS tutor,
-        t.telefono,
-        t.email,
-        jt.parentesco,
-        jt.acudiente_principal
-    FROM JUGADOR_TUTOR jt
-    INNER JOIN TUTOR t ON jt.id_tutor = t.id_tutor
-    WHERE jt.id_jugador = ?
-    ORDER BY jt.acudiente_principal DESC, t.apellidos
-    """
-    return ejecutar_query(q, (int(id_jugador),), fetch=True)
-
-
-def insert_jugador_tutor(id_jugador, id_tutor, parentesco, acudiente_principal=None):
-    _validar_requerido(parentesco, "Parentesco")
-
-    _, rows = ejecutar_query(
-        "SELECT COUNT(*) FROM JUGADOR_TUTOR WHERE id_jugador = ? AND id_tutor = ?",
-        (int(id_jugador), int(id_tutor)), fetch=True
-    )
-    if rows[0][0] > 0:
-        raise ValueError("Este tutor ya está vinculado a este jugador.")
-
-    if acudiente_principal:
-        ejecutar_query(
-            "UPDATE JUGADOR_TUTOR SET acudiente_principal = 0 WHERE id_jugador = ?",
-            (int(id_jugador),)
-        )
-    ejecutar_query(
-        "INSERT INTO JUGADOR_TUTOR (id_jugador, id_tutor, parentesco, acudiente_principal) "
-        "VALUES (?, ?, ?, ?)",
-        (int(id_jugador), int(id_tutor), parentesco.strip(), 1 if acudiente_principal else 0)
-    )
-
-
-def set_acudiente_principal(id_jugador, id_tutor):
-    ejecutar_query(
-        "UPDATE JUGADOR_TUTOR SET acudiente_principal = 0 WHERE id_jugador = ?",
-        (int(id_jugador),)
-    )
-    ejecutar_query(
-        "UPDATE JUGADOR_TUTOR SET acudiente_principal = 1 "
-        "WHERE id_jugador = ? AND id_tutor = ?",
-        (int(id_jugador), int(id_tutor))
-    )
-
-
-def delete_jugador_tutor(id_jugador_tutor):
-    _, rows = ejecutar_query(
-        "SELECT id_jugador, acudiente_principal FROM JUGADOR_TUTOR WHERE id_jugador_tutor = ?",
-        (int(id_jugador_tutor),), fetch=True
-    )
-    if not rows:
-        raise ValueError("Vínculo tutor-jugador no encontrado.")
-
-    id_jugador = rows[0][0]
-
-    _, cnt = ejecutar_query(
-        "SELECT COUNT(*) FROM JUGADOR_TUTOR WHERE id_jugador = ?",
-        (int(id_jugador),), fetch=True
-    )
-    if cnt[0][0] <= 1:
-        raise ValueError(
-            "No se puede desvincular el único tutor del jugador. "
-            "Primero agregue otro tutor."
-        )
-
-    ejecutar_query(
-        "DELETE FROM JUGADOR_TUTOR WHERE id_jugador_tutor = ?",
-        (int(id_jugador_tutor),)
-    )
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# SECCIÓN 1 — TUTORES
-# ─────────────────────────────────────────────────────────────────────────────
-
-def get_tutores():
-    q = """
-    SELECT id_tutor, nombres, apellidos, documento,
-           telefono, email, direccion
-    FROM TUTOR
-    ORDER BY apellidos, nombres
-    """
-    return ejecutar_query(q, fetch=True)
-
-
-def get_tutores_simple():
-    cols, rows = ejecutar_query(
-        "SELECT id_tutor, nombres + ' ' + apellidos AS nombre_completo "
-        "FROM TUTOR ORDER BY apellidos, nombres",
-        fetch=True
-    )
-    return rows
-
-
-def get_detalle_tutor(id_tutor):
-    q = "SELECT * FROM VW_DetalleTutor WHERE id_tutor = ?"
-    return ejecutar_query(q, (int(id_tutor),), fetch=True)
-
-
-def _validar_tutor(nombres, apellidos, documento, telefono, email,
-                   direccion, excluir_id=None):
-    _validar_solo_texto(nombres, "Nombres")
-    _validar_solo_texto(apellidos, "Apellidos")
-    _validar_documento(documento)
-    _validar_requerido(telefono, "Teléfono")
-    _validar_telefono(telefono)
-    _validar_requerido(email, "Email")
-    _validar_email(email)
-    _validar_requerido(direccion, "Dirección")
-
-    if _documento_existe("TUTOR", "id_tutor", documento, excluir_id):
-        raise ValueError(f"Ya existe un tutor con el documento '{documento}'.")
-
-
-def insert_tutor(nombres, apellidos, documento, telefono, email, direccion):
-    _validar_tutor(nombres, apellidos, documento, telefono, email, direccion)
-    ejecutar_query(
-        "EXEC SP_InsertarTutor ?,?,?,?,?,?",
-        (
-            nombres.strip(),
-            apellidos.strip(),
-            documento.strip(),
-            telefono.strip(),
-            email.strip().lower(),
-            direccion.strip(),
-        )
-    )
-
-
-def update_tutor(id_t, nombres, apellidos, documento, telefono, email, direccion):
-    _validar_tutor(nombres, apellidos, documento, telefono, email,
-                   direccion, excluir_id=int(id_t))
-    ejecutar_query(
-        "UPDATE TUTOR "
-        "SET nombres=?, apellidos=?, documento=?, telefono=?, email=?, direccion=? "
-        "WHERE id_tutor=?",
-        (
-            nombres.strip(),
-            apellidos.strip(),
-            documento.strip(),
-            telefono.strip(),
-            email.strip().lower(),
-            direccion.strip(),
-            int(id_t),
-        )
-    )
-
-
-def delete_tutor(id_t):
-    ejecutar_query("EXEC SP_EliminarTutor ?", (int(id_t),))
-
-
-def buscar_tutores(texto):
-    filtro = f"%{texto.strip()}%"
-    q = """
-    SELECT id_tutor,
-           nombres + ' ' + apellidos AS nombre_completo,
-           documento, telefono
-    FROM TUTOR
-    WHERE nombres   LIKE ?
-       OR apellidos LIKE ?
-       OR documento LIKE ?
-    ORDER BY apellidos, nombres
-    """
-    return ejecutar_query(q, (filtro, filtro, filtro), fetch=True)
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# SECCIÓN 1 — PROFESORES
-# ─────────────────────────────────────────────────────────────────────────────
-
-def get_profesores():
-    q = """
-    SELECT id_profesor, nombres, apellidos, documento,
-           telefono, email, especialidad, estado, fecha_ingreso
-    FROM PROFESOR
-    ORDER BY apellidos, nombres
-    """
-    return ejecutar_query(q, fetch=True)
-
-
 def get_profesores_activos():
     cols, rows = ejecutar_query(
         "SELECT id_profesor, nombres + ' ' + apellidos AS nombre_completo "
@@ -518,92 +77,6 @@ def get_profesores_activos():
         fetch=True
     )
     return rows
-
-
-def get_detalle_profesor(id_profesor):
-    q = "SELECT * FROM VW_DetalleProfesor WHERE id_profesor = ?"
-    return ejecutar_query(q, (int(id_profesor),), fetch=True)
-
-
-def _validar_profesor(nombres, apellidos, documento, telefono, email,
-                      especialidad, estado, fecha_ing, excluir_id=None):
-    _validar_solo_texto(nombres, "Nombres")
-    _validar_solo_texto(apellidos, "Apellidos")
-    _validar_documento(documento)
-    _validar_requerido(telefono, "Teléfono")
-    _validar_telefono(telefono)
-    _validar_requerido(email, "Email")
-    _validar_email(email)
-    _validar_fecha(fecha_ing, "Fecha de ingreso")
-
-    estados_validos = ["activo", "inactivo"]
-    if estado not in estados_validos:
-        raise ValueError(f"Estado inválido. Opciones: {', '.join(estados_validos)}.")
-
-    if _documento_existe("PROFESOR", "id_profesor", documento, excluir_id):
-        raise ValueError(f"Ya existe un profesor con el documento '{documento}'.")
-
-
-def insert_profesor(nombres, apellidos, documento, telefono, email,
-                    especialidad, fecha_ing):
-    _validar_profesor(nombres, apellidos, documento, telefono, email,
-                      especialidad, "activo", fecha_ing)
-    ejecutar_query(
-        "EXEC SP_InsertarProfesor ?,?,?,?,?,?,?",
-        (
-            nombres.strip(),
-            apellidos.strip(),
-            documento.strip(),
-            telefono.strip(),
-            email.strip().lower(),
-            especialidad.strip() if especialidad else None,
-            fecha_ing.strip(),
-        )
-    )
-
-
-def update_profesor(id_p, nombres, apellidos, documento, telefono, email,
-                    especialidad, estado):
-    _validar_solo_texto(nombres, "Nombres")
-    _validar_solo_texto(apellidos, "Apellidos")
-    _validar_documento(documento)
-    _validar_requerido(telefono, "Teléfono")
-    _validar_telefono(telefono)
-    _validar_requerido(email, "Email")
-    _validar_email(email)
-
-    estados_validos = ["activo", "inactivo"]
-    if estado not in estados_validos:
-        raise ValueError(f"Estado inválido. Opciones: {', '.join(estados_validos)}.")
-
-    if _documento_existe("PROFESOR", "id_profesor", documento, excluir_id=int(id_p)):
-        raise ValueError(f"Ya existe otro profesor con el documento '{documento}'.")
-
-    ejecutar_query(
-        "UPDATE PROFESOR "
-        "SET nombres=?, apellidos=?, documento=?, telefono=?, email=?, "
-        "    especialidad=?, estado=? "
-        "WHERE id_profesor=?",
-        (
-            nombres.strip(),
-            apellidos.strip(),
-            documento.strip(),
-            telefono.strip(),
-            email.strip().lower(),
-            especialidad.strip() if especialidad else None,
-            estado,
-            int(id_p),
-        )
-    )
-
-
-def delete_profesor(id_p):
-    """
-    Borrado físico completo mediante SP_EliminarProfesor.
-    El SP elimina en cascada: SESION_JUGADOR → SESION →
-    PLANTILLA_PROFESOR → PROFESOR.
-    """
-    ejecutar_query("EXEC SP_EliminarProfesor ?", (int(id_p),))
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1050,73 +523,6 @@ def quitar_profesor_plantilla(id_plantilla_profesor):
     )
 
 
-# ── Historial ─────────────────────────────────────────────────────────────────
-
-def get_plantillas_de_jugador(id_jugador):
-    q = """
-    SELECT
-        p.id_plantilla,
-        p.nombre_plantilla,
-        c.nombre_categoria,
-        p.temporada,
-        p.estado         AS estado_plantilla,
-        pj.fecha_asignacion,
-        pj.estado        AS estado_asignacion,
-        pj.tipo
-    FROM PLANTILLA_JUGADOR pj
-    INNER JOIN PLANTILLA p ON pj.id_plantilla = p.id_plantilla
-    INNER JOIN CATEGORIA c ON p.id_categoria  = c.id_categoria
-    WHERE pj.id_jugador = ? AND pj.estado = 'activo'
-    ORDER BY c.nombre_categoria, p.nombre_plantilla
-    """
-    return ejecutar_query(q, (int(id_jugador),), fetch=True)
-
-
-# ── Alineación ────────────────────────────────────────────────────────────────
-
-def guardar_alineacion(id_plantilla, formacion, slots):
-    """
-    Persiste la alineación en BD usando la tabla PLANTILLA_ALINEACION.
-    slots: lista de dicts {id_jugador, slot_index, posicion}
-    """
-    # Borrar alineación anterior de esta plantilla
-    ejecutar_query(
-        "DELETE FROM PLANTILLA_ALINEACION WHERE id_plantilla = ?",
-        (int(id_plantilla),)
-    )
-    # Insertar cada slot
-    for s in slots:
-        ejecutar_query(
-            "INSERT INTO PLANTILLA_ALINEACION "
-            "(id_plantilla, id_jugador, formacion, slot_index, posicion) "
-            "VALUES (?,?,?,?,?)",
-            (int(id_plantilla), int(s["id_jugador"]), formacion,
-             int(s["slot_index"]), s["posicion"])
-        )
- 
- 
-def get_alineacion(id_plantilla):
-    """
-    Devuelve la alineación guardada de una plantilla.
-    Columnas retornadas:
-        id_plantilla, id_jugador, jugador, formacion, slot_index, posicion
-    """
-    q = """
-    SELECT
-        a.id_plantilla,
-        a.id_jugador,
-        j.nombres + ' ' + j.apellidos AS jugador,
-        a.formacion,
-        a.slot_index,
-        a.posicion
-    FROM PLANTILLA_ALINEACION a
-    INNER JOIN JUGADOR j ON a.id_jugador = j.id_jugador
-    WHERE a.id_plantilla = ?
-    ORDER BY a.slot_index
-    """
-    return ejecutar_query(q, (int(id_plantilla),), fetch=True)
-
-
 # ─────────────────────────────────────────────────────────────────────────────
 # SECCIÓN 3 — SESIONES
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1130,32 +536,6 @@ def get_sesiones(id_categoria=None, id_plantilla=None, tipo_sesion=None):
         "EXEC SP_FiltrarSesiones ?,?,?",
         (id_categoria, id_plantilla, tipo_sesion),
         fetch=True
-    )
-
-
-def get_sesion_detalle(id_sesion):
-    return ejecutar_query(
-        """
-        SELECT
-            s.id_sesion,
-            s.fecha_sesion,
-            s.tipo_sesion,
-            s.estado,
-            s.marcador,
-            s.resultado,
-            s.observaciones,
-            p.nombres + ' ' + p.apellidos AS profesor,
-            ca.nombre_cancha,
-            cat.nombre_categoria,
-            pl.nombre_plantilla
-        FROM SESION s
-        INNER JOIN PROFESOR  p   ON s.id_profesor  = p.id_profesor
-        INNER JOIN CANCHA    ca  ON s.id_cancha    = ca.id_cancha
-        INNER JOIN CATEGORIA cat ON s.id_categoria = cat.id_categoria
-        INNER JOIN PLANTILLA pl  ON s.id_plantilla = pl.id_plantilla
-        WHERE s.id_sesion = ?
-        """,
-        (int(id_sesion),), fetch=True
     )
 
 
@@ -1221,33 +601,6 @@ def crear_sesion(fecha_sesion, id_profesor, id_cancha, id_categoria,
         return id_sesion
     finally:
         conn.close()
-
-
-def crear_sesion_completa(fecha_sesion, id_profesor, id_cancha, id_categoria,
-                          id_plantilla, tipo_sesion, observaciones, convocados):
-    """
-    Crea la sesión y registra la convocatoria de todos los jugadores en un solo paso.
-
-    convocados: lista de dicts:
-        [{"id_jugador": 5, "asistencia": False, "numero_camiseta": 10}, ...]
-    """
-    id_sesion = crear_sesion(
-        fecha_sesion, id_profesor, id_cancha, id_categoria,
-        id_plantilla, tipo_sesion, observaciones
-    )
-    if not id_sesion:
-        raise RuntimeError("No se pudo obtener el ID de la sesión recién creada.")
-
-    for conv in convocados:
-        registrar_asistencia(
-            id_sesion=id_sesion,
-            id_jugador=conv["id_jugador"],
-            convocado=True,
-            asistencia=conv.get("asistencia", False),
-            numero_camiseta=conv.get("numero_camiseta"),
-        )
-
-    return id_sesion
 
 
 def registrar_asistencia(id_sesion, id_jugador, convocado, asistencia,
@@ -1337,8 +690,6 @@ def get_jugadores_convocables(id_sesion):
     return ejecutar_query(q, (int(id_sesion), int(id_sesion)), fetch=True)
 
 
-
-
 # ─────────────────────────────────────────────────────────────────────────────
 # ALINEACIÓN DE PLANTILLA
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1402,16 +753,6 @@ def get_conceptos_todos():
         "FROM CONCEPTO_PAGO ORDER BY nombre_concepto",
         fetch=True
     )
-
-
-def get_concepto_mensualidad():
-    cols, rows = ejecutar_query(
-        "SELECT id_concepto, nombre_concepto, valor_base "
-        "FROM CONCEPTO_PAGO "
-        "WHERE nombre_concepto LIKE '%Mensualidad%' AND estado = 'activo'",
-        fetch=True
-    )
-    return rows[0] if rows else None
 
 
 def insert_concepto(nombre, valor_base, descripcion, eliminable=True):
@@ -1498,24 +839,6 @@ def get_pagos():
     return ejecutar_query(q, fetch=True)
 
 
-def get_pagos_jugador(id_jugador):
-    q = """
-    SELECT
-        p.id_pago,
-        cp.nombre_concepto,
-        p.fecha_pago,
-        p.fecha_expiracion,
-        p.valor_pagado,
-        p.metodo_pago,
-        p.observaciones
-    FROM PAGO p
-    INNER JOIN CONCEPTO_PAGO cp ON p.id_concepto = cp.id_concepto
-    WHERE p.id_jugador = ?
-    ORDER BY p.fecha_pago DESC
-    """
-    return ejecutar_query(q, (int(id_jugador),), fetch=True)
-
-
 def _validar_pago(fecha_pago, fecha_exp, valor, metodo, requiere_expiracion=False):
     _validar_fecha(fecha_pago, "Fecha de pago")
 
@@ -1597,23 +920,6 @@ def get_morosos():
     )
 
 
-def get_morosidad_jugador(id_jugador):
-    q = """
-    SELECT
-        id_morosidad,
-        fecha_vencimiento,
-        recargo,
-        fecha_recargo,
-        motivo_recargo,
-        estado_mora,
-        observaciones
-    FROM MOROSIDAD
-    WHERE id_jugador = ?
-    ORDER BY fecha_vencimiento DESC
-    """
-    return ejecutar_query(q, (int(id_jugador),), fetch=True)
-
-
 def actualizar_morosos():
     ejecutar_query("EXEC SP_ActualizarMorosos")
 
@@ -1669,32 +975,32 @@ def update_morosidad(id_morosidad, estado_mora, observaciones=None):
 def get_datos_dashboard():
 
     from paladinesfc.legado.db import obtener_conexion, ejecutar_query
- 
+
     conn = obtener_conexion()
     cursor = conn.cursor()
- 
+
     kpis_cols = []
     kpis_rows = []
     hist_cols  = []
     hist_rows  = []
- 
+
     try:
 
         cursor.execute("EXEC SP_ObtenerDatosDashboard")
- 
+
         if cursor.description:
             kpis_cols = [d[0] for d in cursor.description]
             kpis_rows = cursor.fetchall()
- 
+
    
         hay_siguiente = cursor.nextset()
         if hay_siguiente and cursor.description:
             hist_cols = [d[0] for d in cursor.description]
             hist_rows = cursor.fetchall()
- 
+
     finally:
         conn.close()
- 
+
 
     try:
         _, total_morosos_rows = ejecutar_query(
@@ -1709,18 +1015,18 @@ def get_datos_dashboard():
     except Exception:
         # Si la query falla, dejamos el valor que trajo el SP (mejor que crash)
         total_morosos = kpis_rows[0][4] if kpis_rows else 0
- 
+
 
     if kpis_rows:
         fila_original = list(kpis_rows[0])
         fila_original[4] = total_morosos
         kpis_rows = [tuple(fila_original)]
- 
+
     return (kpis_cols, kpis_rows), (hist_cols, hist_rows)
- 
- 
 
  
+
+
 def get_estadisticas_asistencia(id_categoria=None):
     from paladinesfc.legado.db import ejecutar_query
     q = """
@@ -1742,7 +1048,7 @@ def get_estadisticas_asistencia(id_categoria=None):
     ORDER BY porcentaje_asistencia DESC
     """
     return ejecutar_query(q, (id_categoria, id_categoria), fetch=True)
- 
+
  
 def get_ingresos_por_concepto(anio=None):
     from paladinesfc.legado.db import ejecutar_query
@@ -1758,7 +1064,7 @@ def get_ingresos_por_concepto(anio=None):
     ORDER BY total_recaudado DESC
     """
     return ejecutar_query(q, (anio, anio), fetch=True)
- 
+
  
 def get_ranking_morosos():
     """
@@ -1780,7 +1086,7 @@ def get_ranking_morosos():
     ORDER BY total_recargos DESC, registros_mora DESC
     """
     return ejecutar_query(q, fetch=True)
- 
+
  
 def get_resumen_sesiones_por_categoria():
     from paladinesfc.legado.db import ejecutar_query
@@ -1797,28 +1103,5 @@ def get_resumen_sesiones_por_categoria():
     ORDER BY c.nombre_categoria, s.tipo_sesion
     """
     return ejecutar_query(q, fetch=True)
+
  
- 
-def get_jugadores_sin_pago_reciente(meses=1):
-    from paladinesfc.legado.db import ejecutar_query
-    q = """
-    SELECT
-        j.id_jugador,
-        j.nombres + ' ' + j.apellidos AS jugador,
-        j.documento,
-        j.estado,
-        MAX(p.fecha_pago)             AS ultimo_pago_mensualidad
-    FROM JUGADOR j
-    LEFT JOIN PAGO p
-        ON p.id_jugador = j.id_jugador
-        AND p.id_concepto IN (
-            SELECT id_concepto FROM CONCEPTO_PAGO
-            WHERE nombre_concepto LIKE '%Mensualidad%'
-        )
-    WHERE j.estado = 'activo'
-    GROUP BY j.id_jugador, j.nombres, j.apellidos, j.documento, j.estado
-    HAVING MAX(p.fecha_pago) < DATEADD(MONTH, -?, GETDATE())
-        OR MAX(p.fecha_pago) IS NULL
-    ORDER BY ultimo_pago_mensualidad ASC
-    """
-    return ejecutar_query(q, (int(meses),), fetch=True)
