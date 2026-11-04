@@ -231,9 +231,9 @@ class TabJugadores(ctk.CTkFrame):
     Funciones: listar, buscar por cédula, ver detalle, registrar, editar, dar de baja.
     """
     COLUMNAS = ["ID", "Jugador", "Documento", "Estado", "Nacimiento",
-                "Talla", "Tutor Principal", "Parentesco", "Tel. Tutor"]
+                "Talla", "EPS", "Tutor Principal", "Parentesco", "Tel. Tutor"]
     CAMPOS = ["id_jugador", "jugador", "documento", "estado", "fecha_nacimiento",
-              "talla_uniforme", "tutor_principal", "parentesco", "telefono_tutor"]
+              "talla_uniforme", "eps", "tutor_principal", "parentesco", "telefono_tutor"]
 
     def __init__(self, master):
         super().__init__(master, fg_color=GRIS_FONDO)
@@ -282,7 +282,7 @@ class TabJugadores(ctk.CTkFrame):
             return
         datos = [[fila[c] for c in self.CAMPOS] for fila in filas]
         anchos = {"ID": 40, "Jugador": 180, "Documento": 110, "Estado": 80,
-                  "Nacimiento": 100, "Talla": 60, "Tutor Principal": 180,
+                  "Nacimiento": 100, "Talla": 60, "EPS": 110, "Tutor Principal": 180,
                   "Parentesco": 100, "Tel. Tutor": 120}
         ft, self._tree = hacer_tabla(self._area, self.COLUMNAS, datos, altura=22, ancho_col=anchos)
         ft.pack(fill="both", expand=True)
@@ -367,17 +367,19 @@ class FormJugador(ctk.CTkToplevel):
         self.cb_estado   = combo_form(scroll, "Estado *", 7, list(ESTADOS_JUGADOR), ancho=160)
         self.e_obs       = campo_form(scroll, "Observaciones", 8,
                                       ancho=340, placeholder="Opcional")
+        self.e_eps       = campo_form(scroll, "EPS", 9,
+                                      ancho=260, placeholder="Opcional (entidad de salud)")
 
         # Selector de tutor — solo en modo nuevo
         if self.modo == "nuevo":
             self.cb_estado.set("activo")
             self.cb_estado.configure(state="disabled")
             sep = ctk.CTkFrame(scroll, fg_color=VERDE, height=2)
-            sep.grid(row=9, column=0, columnspan=2, sticky="ew", padx=10, pady=(12, 6))
+            sep.grid(row=10, column=0, columnspan=2, sticky="ew", padx=10, pady=(12, 6))
 
             ctk.CTkLabel(scroll, text="Tutor *", font=FONT_NORMAL,
                          text_color=TEXTO_SEC).grid(
-                row=10, column=0, sticky="e", padx=(10, 4), pady=4)
+                row=11, column=0, sticky="e", padx=(10, 4), pady=4)
 
             try:
                 tutores = servicios.tutores.opciones()
@@ -391,16 +393,16 @@ class FormJugador(ctk.CTkToplevel):
                 scroll, values=etiquetas, width=300,
                 fg_color=GRIS_PANEL, border_color=VERDE,
                 button_color=VERDE, dropdown_fg_color=GRIS_PANEL)
-            self.cb_tutor.grid(row=10, column=1, sticky="w", padx=(0, 14), pady=4)
+            self.cb_tutor.grid(row=11, column=1, sticky="w", padx=(0, 14), pady=4)
 
-            self.cb_parentesco = combo_form(scroll, "Parentesco *", 11, list(PARENTESCOS), ancho=200)
+            self.cb_parentesco = combo_form(scroll, "Parentesco *", 12, list(PARENTESCOS), ancho=200)
 
             if not self._tutores_por_etiqueta:
                 ctk.CTkLabel(
                     scroll,
                     text="⚠ Registra un tutor primero antes de crear un jugador.",
                     font=FONT_SMALL, text_color=NARANJA
-                ).grid(row=12, column=0, columnspan=2, pady=4)
+                ).grid(row=13, column=0, columnspan=2, pady=4)
 
         # Botones FUERA del scroll — siempre visibles
         bf = ctk.CTkFrame(self, fg_color="transparent")
@@ -425,6 +427,8 @@ class FormJugador(ctk.CTkToplevel):
         self.cb_estado.set(j.estado)
         if j.observaciones:
             self.e_obs.insert(0, j.observaciones)
+        if j.eps:
+            self.e_eps.insert(0, j.eps)
         # En modo edición, doc/fnac/fingreso no se pueden modificar
         for campo in (self.e_doc, self.e_fnac, self.e_fingreso):
             campo.configure(state="disabled")
@@ -449,13 +453,13 @@ class FormJugador(ctk.CTkToplevel):
                 servicios.jugadores.registrar_con_tutor(
                     nombres, apellidos, self.e_doc.get(), self.e_fnac.get(),
                     num_pref, talla, self.e_fingreso.get(), obs,
-                    id_tutor, self.cb_parentesco.get())
+                    id_tutor, self.cb_parentesco.get(), eps=self.e_eps.get())
                 mostrar_info("Jugador registrado exitosamente.\n"
                              "Fue añadido automáticamente a la lista de morosidad.")
             else:
                 servicios.jugadores.actualizar(
                     self.id_jugador, nombres, apellidos,
-                    num_pref, talla, self.cb_estado.get(), obs)
+                    num_pref, talla, self.cb_estado.get(), obs, eps=self.e_eps.get())
                 mostrar_info("Jugador actualizado correctamente.")
 
             if self.on_save:
@@ -506,6 +510,7 @@ class VentanaDetalleJugador(ctk.CTkToplevel):
             ("Estado", j.estado),
             ("Ingreso", _texto(j.fecha_ingreso)),
             ("Observaciones", j.observaciones or "—"),
+            ("EPS", j.eps or "—"),
         ]
         for i, (lbl, val) in enumerate(info):
             r, c = divmod(i, 3)

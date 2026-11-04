@@ -29,10 +29,10 @@ class JugadorService(ServicioBase):
     # ── comandos ───────────────────────────────────────────────────────────
     def registrar_con_tutor(self, nombres, apellidos, documento, fecha_nacimiento,
                             numero_preferido, talla_uniforme, fecha_ingreso, observaciones,
-                            id_tutor, parentesco) -> int:
+                            id_tutor, parentesco, eps=None) -> int:
         """Alta de jugador + vínculo con su acudiente principal en UNA transacción."""
         jugador = Jugador.nuevo(nombres, apellidos, documento, fecha_nacimiento,
-                                talla_uniforme, fecha_ingreso, numero_preferido, observaciones)
+                                talla_uniforme, fecha_ingreso, numero_preferido, observaciones, eps)
         with self._uow("registrar jugador con tutor") as uow:
             if uow.jugadores.existe_documento(jugador.documento):
                 raise ReglaNegocioError(f"Ya existe un jugador con el documento '{jugador.documento}'.")
@@ -45,11 +45,11 @@ class JugadorService(ServicioBase):
             return id_jugador
 
     def actualizar(self, id_jugador, nombres, apellidos, numero_preferido,
-                   talla_uniforme, estado, observaciones) -> None:
+                   talla_uniforme, estado, observaciones, eps=None) -> None:
         with self._uow("actualizar jugador") as uow:
             jugador = self._obtener(uow, id_jugador)
             jugador.actualizar(nombres, apellidos, numero_preferido,
-                               talla_uniforme, estado, observaciones)
+                               talla_uniforme, estado, observaciones, eps)
             uow.jugadores.actualizar(jugador)
             uow.commit()
 

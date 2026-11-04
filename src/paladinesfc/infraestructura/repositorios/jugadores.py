@@ -5,7 +5,7 @@ from paladinesfc.dominio.jugador import Jugador
 from paladinesfc.infraestructura.repositorios._base import RepositorioBase
 
 _COLUMNAS = """id_jugador, nombres, apellidos, documento, fecha_nacimiento,
-               numero_preferido, talla_uniforme, estado, fecha_ingreso, observaciones"""
+               numero_preferido, talla_uniforme, estado, fecha_ingreso, observaciones, eps"""
 
 
 class RepositorioJugadoresSql(RepositorioBase):
@@ -26,7 +26,8 @@ class RepositorioJugadoresSql(RepositorioBase):
                j.documento, j.estado, j.fecha_nacimiento, j.talla_uniforme,
                ISNULL(t.nombres + ' ' + t.apellidos, 'Sin tutor')  AS tutor_principal,
                ISNULL(jt.parentesco, '-')                           AS parentesco,
-               ISNULL(t.telefono, '-')                              AS telefono_tutor
+               ISNULL(t.telefono, '-')                              AS telefono_tutor,
+               ISNULL(j.eps, '-')                                   AS eps
         FROM JUGADOR j
         LEFT JOIN JUGADOR_TUTOR jt ON jt.id_jugador = j.id_jugador AND jt.acudiente_principal = 1
         LEFT JOIN TUTOR t          ON t.id_tutor = jt.id_tutor
@@ -42,11 +43,11 @@ class RepositorioJugadoresSql(RepositorioBase):
         id_nuevo = self._uow.insertar(
             """INSERT INTO JUGADOR (nombres, apellidos, documento, fecha_nacimiento,
                                     numero_preferido, talla_uniforme, estado,
-                                    fecha_ingreso, observaciones)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                                    fecha_ingreso, observaciones, eps)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (jugador.nombres, jugador.apellidos, jugador.documento,
              jugador.fecha_nacimiento, jugador.numero_preferido, jugador.talla_uniforme,
-             jugador.estado, jugador.fecha_ingreso, jugador.observaciones))
+             jugador.estado, jugador.fecha_ingreso, jugador.observaciones, jugador.eps))
         jugador.id_jugador = id_nuevo
         return id_nuevo
 
@@ -54,10 +55,10 @@ class RepositorioJugadoresSql(RepositorioBase):
         self._uow.ejecutar(
             """UPDATE JUGADOR
                SET nombres = ?, apellidos = ?, numero_preferido = ?,
-                   talla_uniforme = ?, estado = ?, observaciones = ?
+                   talla_uniforme = ?, estado = ?, observaciones = ?, eps = ?
                WHERE id_jugador = ?""",
             (jugador.nombres, jugador.apellidos, jugador.numero_preferido,
-             jugador.talla_uniforme, jugador.estado, jugador.observaciones,
+             jugador.talla_uniforme, jugador.estado, jugador.observaciones, jugador.eps,
              int(jugador.id_jugador)))
 
     def contar_plantillas_activas(self, id_jugador: int) -> int:
