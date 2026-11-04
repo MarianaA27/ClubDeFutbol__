@@ -34,3 +34,12 @@ def test_autenticacion_sql_usa_usuario_y_clave(tmp_path):
     cadena = cfg.cadena()
     assert "Trusted_Connection" not in cadena
     assert "UID=club;" in cadena and "PWD=secreta;" in cadena
+
+
+def test_en_el_ejecutable_config_ini_y_logs_van_junto_al_exe(monkeypatch, tmp_path):
+    """Empaquetado (issue #20): con PyInstaller la raíz es la carpeta del .exe."""
+    import sys
+    from paladinesfc.infraestructura.config import carpeta_raiz
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setattr(sys, "executable", str(tmp_path / "ClubFutbol.exe"))
+    assert carpeta_raiz() == tmp_path.resolve()

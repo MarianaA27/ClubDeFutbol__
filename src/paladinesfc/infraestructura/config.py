@@ -15,10 +15,24 @@ from __future__ import annotations
 
 import configparser
 import os
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-_RAIZ = Path(__file__).resolve().parents[3]
+
+def carpeta_raiz() -> Path:
+    """Carpeta donde se buscan ``config.ini`` y ``logs/``.
+
+    En desarrollo es la raíz del repositorio. En el ejecutable empaquetado con
+    PyInstaller (issue #20) es la carpeta del ``.exe``: así ``config.ini`` y la bitácora
+    quedan junto al programa y no dentro de la carpeta temporal de PyInstaller.
+    """
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).resolve().parent
+    return Path(__file__).resolve().parents[3]
+
+
+_RAIZ = carpeta_raiz()
 
 _POR_DEFECTO = {
     "driver": "ODBC Driver 17 for SQL Server",

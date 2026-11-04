@@ -8,10 +8,11 @@ from __future__ import annotations
 
 import logging
 from logging.handlers import RotatingFileHandler
-from pathlib import Path
+
+from paladinesfc.infraestructura.config import carpeta_raiz
 
 _NOMBRE = "paladinesfc"
-_CARPETA_LOGS = Path(__file__).resolve().parents[3] / "logs"
+_CARPETA_LOGS = carpeta_raiz() / "logs"
 
 
 def obtener_bitacora() -> logging.Logger:
