@@ -8,6 +8,7 @@ en orden sobre una base creada con `../ClubFutbolDB.sql`.
 | 001 | `001_inactivacion_logica.sql` | ADR-0003, ADR-0004 | Lista para aplicar |
 | 002 | `002_eps_jugador.sql` | Escenario E1 (campo EPS) | Lista para aplicar |
 | 003 | `003_retiro_objetos_reemplazados.sql` | ADR-0004, ADR-0005 (limpieza del legado) | Lista para aplicar |
+| 004 | `004_reparar_sp_asignar_jugador_plantilla.sql` | Hallazgo de las pruebas de integración: el SP quedaba con 3 parámetros en las bases creadas con el script original | Lista para aplicar |
 
 Reglas:
 

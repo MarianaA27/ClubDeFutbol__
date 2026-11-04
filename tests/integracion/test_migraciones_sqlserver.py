@@ -42,3 +42,19 @@ def test_sp_asignar_jugador_plantilla_quedo_actualizado(base):
     """Antes del GO que faltaba en ClubFutbolDB.sql, el SP se quedaba con 3 parámetros (sin @tipo)."""
     parametros = bp.escalar(base, "SELECT COUNT(*) FROM sys.parameters WHERE object_id = OBJECT_ID('SP_AsignarJugadorPlantilla')")
     assert parametros == 4
+
+
+def test_migracion_004_repara_una_base_creada_con_el_sp_antiguo(base):
+    """Simula la base del club: el SP con 3 parámetros (sin @tipo), como lo dejaba el script original."""
+    con = bp.conectar(base, autocommit=True)
+    try:
+        con.cursor().execute(
+            "CREATE OR ALTER PROCEDURE SP_AsignarJugadorPlantilla @id_plantilla INT, @id_jugador INT, "
+            "@fecha DATE AS BEGIN INSERT INTO PLANTILLA_JUGADOR (id_plantilla, id_jugador, fecha_asignacion, "
+            "estado) VALUES (@id_plantilla, @id_jugador, @fecha, 'activo') END")
+    finally:
+        con.close()
+    consulta = "SELECT COUNT(*) FROM sys.parameters WHERE object_id = OBJECT_ID('SP_AsignarJugadorPlantilla')"
+    assert bp.escalar(base, consulta) == 3
+    bp.ejecutar_script(base, bp.CARPETA_MIGRACIONES / "004_reparar_sp_asignar_jugador_plantilla.sql")
+    assert bp.escalar(base, consulta) == 4
