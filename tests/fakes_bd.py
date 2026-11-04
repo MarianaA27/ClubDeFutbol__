@@ -45,8 +45,10 @@ class CursorFalso:
 
 
 class ConexionFalsa:
-    def __init__(self, fallar_en=None, respuestas=None, filas_afectadas=1):
+    def __init__(self, fallar_en=None, respuestas=None, filas_afectadas=1,
+                 conexion_perdida=False):
         self.fallar_en = fallar_en
+        self.conexion_perdida = conexion_perdida   # rollback/close fallan como con la sesión caída
         self.respuestas = list(respuestas or [])
         self.filas_afectadas = filas_afectadas
         self.numero_sentencia = 0
@@ -69,6 +71,10 @@ class ConexionFalsa:
     def rollback(self):
         self.pendientes = []
         self.rollbacks += 1
+        if self.conexion_perdida:
+            raise FalloInyectado("Communication link failure (rollback)")
 
     def close(self):
         self.cerrada = True
+        if self.conexion_perdida:
+            raise FalloInyectado("Communication link failure (close)")
