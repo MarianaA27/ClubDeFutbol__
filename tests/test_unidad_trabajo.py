@@ -69,3 +69,19 @@ def test_consultar_devuelve_diccionarios_por_nombre_de_columna():
     with UnidadDeTrabajoSql(lambda: conexion) as uow:
         filas = uow.consultar("SELECT id_jugador, nombres FROM JUGADOR")
     assert filas == [{"id_jugador": 1, "nombres": "Ana"}, {"id_jugador": 2, "nombres": "Luis"}]
+
+
+def test_si_la_sesion_se_perdio_se_propaga_el_error_original_y_queda_en_la_bitacora(caplog):
+    """Hallazgo de las pruebas de integración: con la sesión caída, rollback() también falla.
+
+    El error que llega a la interfaz debe ser el original (no el del rollback) y la
+    bitácora debe registrar tanto la reversión como el aviso del rollback fallido.
+    """
+    conexion = ConexionFalsa(fallar_en=2, conexion_perdida=True)
+    with caplog.at_level(logging.WARNING, logger="paladinesfc"):
+        with pytest.raises(FalloInyectado, match="sentencia 2"):
+            with UnidadDeTrabajoSql(lambda: conexion, operacion="cambiar acudiente principal") as uow:
+                _cambiar_principal(uow, 7, 3)
+    assert conexion.confirmadas == []
+    assert "no se pudo enviar ROLLBACK" in caplog.text
+    assert "revertida" in caplog.text

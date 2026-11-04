@@ -57,15 +57,37 @@ class UnidadDeTrabajoSql:
     def __exit__(self, tipo, excepcion, traza) -> bool:
         try:
             if tipo is not None:
-                self._conexion.rollback()
+                self._revertir()
                 self._bitacora.error(
                     "Operación '%s' revertida: %s: %s",
                     self._operacion, tipo.__name__, excepcion)
             elif not self._confirmada:
-                self._conexion.rollback()
+                self._revertir()
         finally:
-            self._conexion.close()
+            self._cerrar()
         return False  # nunca se traga la excepción
+
+    def _revertir(self) -> None:
+        """Envía ROLLBACK. Si la conexión ya se perdió, el aviso no debe ocultar el error original.
+
+        Hallazgo de las pruebas contra SQL Server real: cuando la sesión se cae a mitad
+        de la operación, ``rollback()`` también falla. El motor ya revirtió la
+        transacción al perder la sesión, así que basta con registrarlo y dejar que se
+        propague la excepción que causó la falla.
+        """
+        try:
+            self._conexion.rollback()
+        except Exception as error:  # noqa: BLE001 - cualquier fallo del driver
+            self._bitacora.warning(
+                "Operación '%s': no se pudo enviar ROLLBACK (%s: %s); "
+                "SQL Server revierte la transacción al perder la sesión.",
+                self._operacion, type(error).__name__, error)
+
+    def _cerrar(self) -> None:
+        try:
+            self._conexion.close()
+        except Exception:  # noqa: BLE001 - la conexión ya estaba rota
+            pass
 
     def _al_iniciar(self) -> None:
         """Crea los repositorios del MVP sobre ESTA conexión/transacción."""
