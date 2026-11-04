@@ -104,14 +104,14 @@ def app(monkeypatch):
     almacen = Almacen()
     monkeypatch.setattr(modulo, "servicios", contenedor.crear_servicios(fabrica(almacen)))
 
-    def _prohibido(*a, **k):
-        raise AssertionError("Una pantalla del MVP llamó a crud.py")
+    # Desde la limpieza del legado (issue #19) las funciones del MVP ya no existen en
+    # crud.py: ninguna pantalla puede volver a usarlas por error.
     for funcion in ("get_jugadores_con_tutor", "insert_jugador_con_tutor", "update_jugador",
                     "delete_jugador", "get_tutores", "get_tutores_simple", "insert_tutor",
                     "update_tutor", "delete_tutor", "get_profesores", "insert_profesor",
                     "update_profesor", "delete_profesor", "set_acudiente_principal",
                     "insert_jugador_tutor", "delete_jugador_tutor", "get_detalle_jugador_completo"):
-        monkeypatch.setattr(modulo.crud, funcion, _prohibido)
+        assert not hasattr(modulo.crud, funcion), f"crud.{funcion} debería haberse retirado"
     modulo._mensajes, modulo._almacen = mensajes, almacen
     return modulo
 
