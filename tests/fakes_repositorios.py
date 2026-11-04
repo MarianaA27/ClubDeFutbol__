@@ -72,6 +72,7 @@ class RepoJugadores(_Repo):
                 "tutor_principal": tutor.nombre_completo if tutor else "Sin tutor",
                 "parentesco": principal.parentesco if principal else "-",
                 "telefono_tutor": tutor.telefono if tutor else "-",
+                "eps": j.eps or "-",
             })
         return filas
 

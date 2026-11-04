@@ -19,13 +19,14 @@ class Jugador:
     numero_preferido: int | None = None
     estado: str = "activo"
     observaciones: str | None = None
+    eps: str | None = None
     id_jugador: int | None = None
 
     # ── creación ───────────────────────────────────────────────────────────
     @classmethod
     def nuevo(cls, nombres, apellidos, documento, fecha_nacimiento, talla_uniforme,
               fecha_ingreso, numero_preferido=None, observaciones=None,
-              hoy: date | None = None) -> "Jugador":
+              eps=None, hoy: date | None = None) -> "Jugador":
         """Crea un jugador validando TODAS las reglas. Siempre nace 'activo'."""
         hoy = hoy or date.today()
         fn = v.fecha(fecha_nacimiento, "Fecha de nacimiento")
@@ -44,6 +45,7 @@ class Jugador:
             numero_preferido=v.entero_positivo_opcional(numero_preferido, "Número preferido"),
             estado="activo",
             observaciones=v.texto_libre_opcional(observaciones, "Observaciones", 100),
+            eps=v.texto_libre_opcional(eps, "EPS", 50),
         )
 
     @classmethod
@@ -60,11 +62,12 @@ class Jugador:
             estado=fila["estado"],
             fecha_ingreso=fila["fecha_ingreso"],
             observaciones=fila.get("observaciones"),
+            eps=fila.get("eps"),
         )
 
     # ── comportamiento ─────────────────────────────────────────────────────
     def actualizar(self, nombres, apellidos, numero_preferido, talla_uniforme,
-                   estado, observaciones) -> None:
+                   estado, observaciones, eps=None) -> None:
         """Edición permitida: documento y fechas NO se modifican (igual que la UI original)."""
         self.nombres = v.texto(nombres, "Nombres")
         self.apellidos = v.texto(apellidos, "Apellidos")
@@ -72,6 +75,7 @@ class Jugador:
         self.talla_uniforme = v.opcion(talla_uniforme, v.TALLAS, "Talla uniforme", mayusculas=True)
         self.estado = v.opcion(estado, v.ESTADOS_JUGADOR, "Estado")
         self.observaciones = v.texto_libre_opcional(observaciones, "Observaciones", 100)
+        self.eps = v.texto_libre_opcional(eps, "EPS", 50)
 
     def inactivar(self) -> None:
         """Baja lógica (ADR-0003): conserva pagos, asistencias e historial."""

@@ -6,6 +6,7 @@ en orden sobre una base creada con `../ClubFutbolDB.sql`.
 | N.º | Archivo | Decisión | Estado |
 |---|---|---|---|
 | 001 | `001_inactivacion_logica.sql` | ADR-0003, ADR-0004 | Lista para aplicar |
+| 002 | `002_eps_jugador.sql` | Escenario E1 (campo EPS) | Lista para aplicar |
 
 Reglas:
 
