@@ -1,0 +1,80 @@
+# Integración continua (issue #13).
+# * pruebas-unitarias: las pruebas con dobles en memoria, en cada push y pull request.
+# * integracion: levanta un SQL Server 2022 real en un contenedor, crea la base de prueba
+#   con src/sql/ClubFutbolDB.sql + migraciones y ejecuta tests/integracion/
+#   (retroalimentación del Entregable 3: validar contra SQL Server real, no solo dobles).
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  pruebas-unitarias:
+    name: Pruebas unitarias
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Dependencias
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq unixodbc
+          pip install -r requirements.txt
+      - name: Pruebas (sin SQL Server)
+        run: python -m pytest -v
+
+  integracion:
+    name: Integración contra SQL Server 2022
+    runs-on: ubuntu-latest
+    services:
+      sqlserver:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: "Y"
+          MSSQL_PID: Express
+          # Contenedor efímero, solo existe durante la ejecución del workflow
+          MSSQL_SA_PASSWORD: Paladines.CI.2026
+        ports:
+          - 1433:1433
+    env:
+      PALADINES_DB_DRIVER: ODBC Driver 18 for SQL Server
+      PALADINES_DB_SERVER: localhost,1433
+      PALADINES_DB_TRUSTED: "no"
+      PALADINES_DB_USER: sa
+      PALADINES_DB_PASSWORD: Paladines.CI.2026
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Driver ODBC 18 de Microsoft
+        run: |
+          if ! odbcinst -q -d 2>/dev/null | grep -q "ODBC Driver 18 for SQL Server"; then
+            curl -sSL https://packages.microsoft.com/keys/microsoft.asc | sudo gpg --batch --yes --dearmor -o /usr/share/keyrings/microsoft-prod.gpg
+            curl -sSL "https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/prod.list" | sudo tee /etc/apt/sources.list.d/mssql-release.list
+            sudo apt-get update -qq
+            sudo ACCEPT_EULA=Y apt-get install -y -qq msodbcsql18 unixodbc
+          fi
+          odbcinst -q -d
+      - name: Dependencias
+        run: pip install -r requirements.txt
+      - name: Esperar a SQL Server
+        run: python .github/scripts/esperar_sqlserver.py
+      - name: Pruebas de integración
+        run: python -m pytest --integracion -v -rs
+      - name: Bitácora
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bitacora-integracion
+          path: logs/
+          if-no-files-found: ignore
+
+
+          
