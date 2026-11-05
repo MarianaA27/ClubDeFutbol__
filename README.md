@@ -66,7 +66,7 @@ Unit of Work, Repository, inyección de dependencias con raíz de composición, 
 │   │   ├── dominio/           entidades y reglas de negocio
 │   │   ├── infraestructura/   configuración, unidad de trabajo, repositorios, bitácora
 │   │   └── legado/            crud.py y db.py de los módulos fuera del MVP
-│   └── sql/                   esquema original y migraciones 001–003
+│   └── sql/                   esquema original y migraciones 001–004
 ├── tests/                     pruebas unitarias y de integración (tests/integracion/)
 ├── ClubFutbol.spec            empaquetado con PyInstaller
 ├── config.ini.example
@@ -95,6 +95,7 @@ pip install -r requirements.txt
 #    src/sql/migraciones/001_inactivacion_logica.sql
 #    src/sql/migraciones/002_eps_jugador.sql
 #    src/sql/migraciones/003_retiro_objetos_reemplazados.sql
+#    src/sql/migraciones/004_reparar_sp_asignar_jugador_plantilla.sql
 
 # 3. Configuración de la conexión
 copy config.ini.example config.ini
@@ -171,7 +172,7 @@ endpoint se puede probar con el botón **Try it out**.
 
 ```bash
 python -m pytest                 # 119 pruebas, sin SQL Server (dobles en memoria)
-python -m pytest --integracion   # + 46 pruebas contra un SQL Server real
+python -m pytest --integracion   # + 47 pruebas contra un SQL Server real
 ```
 
 * **Unitarias:** dominio, servicios, unidad de trabajo (10 fallos inyectados), repositorios,
@@ -212,6 +213,6 @@ Genera `dist/ClubFutbol.exe` y copia `config.ini.example` a su lado: renómbrelo
 |---|---|
 | ADR-0001 Entidades y mapeo por nombre | Implementada en el MVP (0 lecturas por posición en sus pantallas) |
 | ADR-0002 Unidad de trabajo transaccional | Implementada y validada contra SQL Server |
-| ADR-0003 Inactivación lógica | Implementada; migraciones 001–003 aplicadas y validadas |
+| ADR-0003 Inactivación lógica | Implementada; migraciones 001–004 aplicadas y validadas |
 | ADR-0004 Fuente única de reglas | Implementada; procedimientos duplicados retirados (migración 003) |
 | ADR-0005 Repositorios con filtrado en SQL | Implementada en el MVP y en la API |

@@ -15,7 +15,7 @@ AddRelTag("legado", $textColor="#9a9a9a", $lineColor="#9a9a9a", $lineStyle=Dashe
 title PaladinesFC — Diagrama de Componentes (C4 nivel 3) — Versión 2: sistema implementado
 
 Person_Ext(cliente, "Cliente de la API", "Swagger UI / otro sistema")
-ContainerDb(bd, "ClubFutbolDB", "SQL Server", "Tablas JUGADOR, TUTOR, JUGADOR_TUTOR, PROFESOR + resto del esquema; migraciones 001–003")
+ContainerDb(bd, "ClubFutbolDB", "SQL Server", "Tablas JUGADOR, TUTOR, JUGADOR_TUTOR, PROFESOR + resto del esquema; migraciones 001–004")
 Container(log, "Bitácora", "logs/paladinesfc.log")
 
 Container_Boundary(app, "Paquete src/paladinesfc (aplicación de escritorio y API REST)") {

@@ -1,6 +1,6 @@
 # Arquitectura de PaladinesFC — re-arquitectura del MVP
 
-> Entregable 3 · Arquitectura de Sistemas · Universidad Católica Luis Amigó
+> Entrega final (Semana 15) · Arquitectura de Sistemas · Universidad Católica Luis Amigó
 > Equipo: Giany Andrés Salazar Bustamante · Mariana Aguilar Alcaraz · Carlos Daniel Palacios Murillo · Juan Camilo Moreno Pérez
 
 ## 1. Contexto y módulo MVP
@@ -83,7 +83,7 @@ src/
 
 Las fuentes editables (`.puml`) están en [`diagramas/fuentes/`](diagramas/fuentes/). La versión 1
 (arquitectura objetivo del Entregable 3) se conserva en el historial de git; la versión 2
-agrega la API REST, las migraciones 001–003 y la integración continua.
+agrega la API REST, las migraciones 001–004 y la integración continua.
 
 ![Componentes del MVP](diagramas/exportados/c4-3-componentes.png)
 
