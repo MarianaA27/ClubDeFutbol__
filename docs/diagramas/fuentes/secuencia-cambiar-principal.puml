@@ -1,0 +1,53 @@
+@startuml secuencia-cambiar-principal
+' PaladinesFC — Diagrama de secuencia del flujo principal del MVP:
+' "Cambiar el acudiente principal" (escenario E2, ADR-0002 y ADR-0004).
+autonumber
+skinparam shadowing false
+skinparam sequenceMessageAlign center
+skinparam ParticipantPadding 12
+
+title Cambiar el acudiente principal — una sola transacción (versión 2)
+
+actor "Administradora" as admin
+participant "VentanaDetalleJugador\n(escritorio)\no PUT /jugadores/{id}/tutores/principal\n(API)" as ui #5b8fc7
+participant "VinculacionService" as srv #1f6f4a
+participant "UnidadDeTrabajoSql" as uow #6b4c9a
+participant "RepositorioVinculosSql" as repo #6b4c9a
+participant "TutoresDelJugador\n(agregado)" as agr #c27c0e
+database "ClubFutbolDB" as bd
+participant "Bitácora" as log
+
+admin -> ui : elige al nuevo principal
+ui -> srv : cambiar_principal(id_jugador, id_tutor)
+srv -> uow ** : fábrica("cambiar acudiente principal")
+uow -> bd : abrir conexión (autocommit = False)
+srv -> repo : de_jugador(id_jugador)
+repo -> bd : SELECT ... FROM JUGADOR_TUTOR WHERE id_jugador = ?
+repo --> srv : TutoresDelJugador
+srv -> agr : cambiar_principal(id_tutor)
+alt el tutor no está vinculado
+  agr --> srv : NoEncontradoError
+  srv -> uow : salir con excepción
+  uow -> bd : ROLLBACK (no se escribió nada)
+  srv --> ui : error
+  ui --> admin : "El tutor seleccionado no está vinculado" / HTTP 404
+else regla cumplida
+  agr --> srv : ok (valida antes de escribir)
+  srv -> repo : establecer_principal(id_jugador, id_tutor)
+  repo -> bd : UPDATE ... SET acudiente_principal = 0 WHERE id_jugador = ?
+  repo -> bd : UPDATE ... SET acudiente_principal = 1 WHERE id_jugador = ? AND id_tutor = ?
+  alt fallo entre los dos UPDATE (caída de la conexión o error del motor)
+    srv -> uow : salir con excepción
+    uow -> bd : ROLLBACK (deshace el primer UPDATE)
+    uow -> log : "Operación 'cambiar acudiente principal' revertida: causa"
+    srv --> ui : error
+    ui --> admin : mensaje claro / HTTP 503 (el principal anterior se conserva)
+  else ambas sentencias se ejecutan
+    srv -> uow : commit()
+    uow -> bd : COMMIT (las dos sentencias juntas)
+    srv --> ui : ok
+    ui --> admin : lista de tutores actualizada
+  end
+end
+uow -> bd : cerrar conexión
+@enduml

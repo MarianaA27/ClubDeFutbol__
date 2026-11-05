@@ -1,29 +1,31 @@
 @startuml c4-3-componentes
 !include <C4/C4_Component>
-' PaladinesFC — C4 Nivel 3: Componentes del contenedor "Aplicación de escritorio"
-' (versión 1, arquitectura OBJETIVO). El MVP está resaltado en verde.
+' PaladinesFC — C4 Nivel 3: Componentes del paquete src/paladinesfc
+' (versión 2: cómo quedó el sistema). Lo usan los contenedores "Aplicación de escritorio" y "API REST".
 
 LAYOUT_TOP_DOWN()
 SetDefaultLegendEntries("")
-AddElementTag("presentacion", $bgColor="#5b8fc7", $borderColor="#2f5f8a", $fontColor="#ffffff", $legendText="Presentación del MVP (pantallas migradas)")
+AddElementTag("presentacion", $bgColor="#5b8fc7", $borderColor="#2f5f8a", $fontColor="#ffffff", $legendText="Presentación del MVP (escritorio y API REST)")
 AddElementTag("aplicacion", $bgColor="#1f6f4a", $borderColor="#0f3d28", $fontColor="#ffffff", $legendText="Aplicación del MVP (casos de uso)")
 AddElementTag("dominio", $bgColor="#c27c0e", $borderColor="#7a4d06", $fontColor="#ffffff", $legendText="Dominio del MVP (entidades y reglas)")
 AddElementTag("infra", $bgColor="#6b4c9a", $borderColor="#3f2c5c", $fontColor="#ffffff", $legendText="Infraestructura del MVP")
 AddElementTag("legado", $bgColor="#d9d9d9", $borderColor="#9a9a9a", $fontColor="#555555", $legendText="Fuera del alcance del MVP (legado, se migrará después)")
 AddRelTag("legado", $textColor="#9a9a9a", $lineColor="#9a9a9a", $lineStyle=DashedLine(), $legendText="Dependencia legada")
 
-title PaladinesFC — Diagrama de Componentes (C4 nivel 3) — Contenedor "Aplicación de escritorio"
+title PaladinesFC — Diagrama de Componentes (C4 nivel 3) — Versión 2: sistema implementado
 
-ContainerDb(bd, "ClubFutbolDB", "SQL Server", "Tablas JUGADOR, TUTOR, JUGADOR_TUTOR, PROFESOR + resto del esquema")
+Person_Ext(cliente, "Cliente de la API", "Swagger UI / otro sistema")
+ContainerDb(bd, "ClubFutbolDB", "SQL Server", "Tablas JUGADOR, TUTOR, JUGADOR_TUTOR, PROFESOR + resto del esquema; migraciones 001–003")
 Container(log, "Bitácora", "logs/paladinesfc.log")
 
-Container_Boundary(app, "Aplicación de escritorio PaladinesFC (src/paladinesfc)") {
+Container_Boundary(app, "Paquete src/paladinesfc (aplicación de escritorio y API REST)") {
 
     Boundary(capa_p, "presentacion/") {
         Component(ui_jug, "Pantallas de Jugadores y Jugador–Tutor", "CustomTkinter", "TabJugadores, FormJugador, VentanaDetalleJugador, FormVincularTutor", $tags="presentacion")
         Component(ui_tut, "Pantallas de Tutores", "CustomTkinter", "TabTutores, FormTutor", $tags="presentacion")
         Component(ui_prof, "Pantallas de Profesores", "CustomTkinter", "TabProfesores, FormProfesor", $tags="presentacion")
-        Component(contenedor, "Raíz de composición", "contenedor.py", "Crea los servicios e inyecta la fábrica de unidades de trabajo", $tags="presentacion")
+        Component(api, "API REST", "FastAPI", "Rutas de jugadores, tutores y profesores; esquemas JSON; errores 400/404/503", $tags="presentacion")
+        Component(contenedor, "Raíz de composición", "contenedor.py", "Crea los servicios e inyecta la fábrica de unidades de trabajo (escritorio y API)", $tags="presentacion")
         Component(ui_leg, "Pantallas legadas", "CustomTkinter", "Plantillas, Categorías, Canchas, Sesiones, Conceptos, Pagos, Morosidad, Dashboard", $tags="legado")
     }
 
@@ -49,7 +51,7 @@ Container_Boundary(app, "Aplicación de escritorio PaladinesFC (src/paladinesfc)
     }
 
     Boundary(capa_l, "legado/") {
-        Component(crud, "crud.py + db.py", "Python · SQL embebido", "Acceso a datos original; solo para módulos fuera del MVP", $tags="legado")
+        Component(crud, "crud.py + db.py", "Python · SQL embebido", "Acceso a datos original de los módulos fuera del MVP (60 funciones tras retirar las 41 sin uso)", $tags="legado")
     }
 }
 
@@ -57,6 +59,11 @@ Rel(ui_jug, s_jug, "usa")
 Rel(ui_jug, s_vin, "usa")
 Rel(ui_tut, s_tut, "usa")
 Rel(ui_prof, s_prof, "usa")
+Rel(cliente, api, "HTTP/JSON")
+Rel(api, s_jug, "usa")
+Rel(api, s_vin, "usa")
+Rel(api, s_tut, "usa")
+Rel(api, s_prof, "usa")
 Rel(contenedor, uow, "fabrica unidades de trabajo")
 Rel(s_jug, puertos, "depende de")
 Rel(s_vin, puertos, "depende de")
@@ -78,5 +85,5 @@ Rel(crud, cfg, "cadena de conexión", $tags="legado")
 Rel(crud, bd, "SQL embebido y EXEC SP", "pyodbc", $tags="legado")
 
 SHOW_LEGEND()
-footer Regla de dependencias: presentación → aplicación → dominio; la infraestructura implementa los puertos de aplicación. El dominio no conoce pyodbc ni CustomTkinter.
+footer Regla de dependencias: presentación (escritorio o API) → aplicación → dominio; la infraestructura implementa los puertos. Agregar la API no cambió aplicación, dominio ni infraestructura.
 @enduml

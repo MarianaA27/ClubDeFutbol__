@@ -71,7 +71,7 @@ src/
     └── migraciones/       cambios de esquema versionados
 ```
 
-### 3.3 Vistas (C4, versión 1)
+### 3.3 Vistas (C4, versión 2: cómo quedó el sistema)
 
 | Vista | Archivo |
 |---|---|
@@ -79,8 +79,11 @@ src/
 | Contenedores | [diagramas/exportados/c4-2-contenedores.png](diagramas/exportados/c4-2-contenedores.png) |
 | Componentes del MVP | [diagramas/exportados/c4-3-componentes.png](diagramas/exportados/c4-3-componentes.png) |
 | Despliegue | [diagramas/exportados/despliegue.png](diagramas/exportados/despliegue.png) |
+| Secuencia del flujo principal (cambiar acudiente principal) | [diagramas/exportados/secuencia-cambiar-principal.png](diagramas/exportados/secuencia-cambiar-principal.png) |
 
-Las fuentes editables (`.puml`) están en [`diagramas/fuentes/`](diagramas/fuentes/).
+Las fuentes editables (`.puml`) están en [`diagramas/fuentes/`](diagramas/fuentes/). La versión 1
+(arquitectura objetivo del Entregable 3) se conserva en el historial de git; la versión 2
+agrega la API REST, las migraciones 001–003 y la integración continua.
 
 ![Componentes del MVP](diagramas/exportados/c4-3-componentes.png)
 

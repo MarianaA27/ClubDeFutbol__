@@ -1,29 +1,41 @@
 @startuml despliegue
 !include <C4/C4_Deployment>
-' PaladinesFC — Diagrama de despliegue (versión 1, arquitectura OBJETIVO)
+' PaladinesFC — Diagrama de despliegue (versión 2: cómo quedó el sistema)
 
 LAYOUT_TOP_DOWN()
 AddElementTag("mvp", $bgColor="#1f6f4a", $borderColor="#0f3d28", $fontColor="#ffffff", $legendText="Contiene el MVP")
+AddElementTag("nuevo", $bgColor="#2f5f8a", $borderColor="#1b3a57", $fontColor="#ffffff", $legendText="Nuevo en la entrega final")
 
-title PaladinesFC — Diagrama de despliegue — Arquitectura objetivo
+title PaladinesFC — Diagrama de despliegue — Versión 2: sistema implementado
 
-Deployment_Node(pc, "Equipo del club", "PC con Windows 10/11 (único equipo, monousuario)") {
+Deployment_Node(pc, "Equipo del club", "PC con Windows 10/11 (monousuario)") {
     Deployment_Node(carpeta, "Carpeta de instalación", "C:\\PaladinesFC") {
-        Container(exe, "ClubFutbol.exe", "Python 3 + CustomTkinter empaquetado con PyInstaller (o python run.py en desarrollo)", "Aplicación de escritorio en capas con el MVP re-arquitecturado", $tags="mvp")
-        Container(cfg, "config.ini", "INI", "Servidor, base de datos y tipo de autenticación")
-        Container(log, "logs/paladinesfc.log", "Archivo rotativo", "Bitácora de fallos")
+        Container(exe, "ClubFutbol.exe", "PyInstaller (ClubFutbol.spec) · o python run.py", "Aplicación de escritorio con el MVP re-arquitecturado", $tags="mvp")
+        Container(api, "API REST", "uvicorn · python run_api.py · 127.0.0.1:8000", "Mismo paquete y servicios; Swagger en /docs (opcional, solo local)", $tags="nuevo")
+        Container(cfg, "config.ini", "INI junto al ejecutable", "Servidor, base de datos y autenticación")
+        Container(log, "logs/paladinesfc.log", "Archivo rotativo junto al ejecutable", "Bitácora de fallos")
     }
-    Deployment_Node(odbc, "Microsoft ODBC Driver 17 for SQL Server", "Controlador del sistema operativo")
+    Deployment_Node(odbc, "Microsoft ODBC Driver 17/18 for SQL Server", "Controlador del sistema operativo")
     Deployment_Node(sql, "Microsoft SQL Server Express", "Instancia local (p. ej. .\\SQLEXPRESS)") {
-        ContainerDb(bd, "ClubFutbolDB", "Base de datos", "Esquema base + migraciones versionadas en src/sql/migraciones")
+        ContainerDb(bd, "ClubFutbolDB", "Base de datos", "Esquema base + migraciones 001–003")
+    }
+}
+
+Deployment_Node(gh, "GitHub Actions (integración continua)", "Máquina virtual ubuntu-latest, en cada push y pull request") {
+    Container(ci, "Pruebas y mediciones", "pytest · pytest --integracion · evaluacion/medir_escenarios.py", "Unitarias, integración contra SQL Server real y mediciones antes/después", $tags="nuevo")
+    Deployment_Node(docker, "Contenedor de servicio", "mcr.microsoft.com/mssql/server:2022-latest") {
+        ContainerDb(bdci, "ClubFutbolDB_Pruebas", "SQL Server 2022", "Se crea desde cero con el esquema + migraciones en cada ejecución")
     }
 }
 
 Rel(exe, cfg, "lee al iniciar")
+Rel(api, cfg, "lee al iniciar")
 Rel(exe, log, "escribe")
 Rel_R(exe, odbc, "usa vía pyodbc")
-Rel(odbc, bd, "TDS sobre memoria compartida / TCP 1433 local")
+Rel(api, odbc, "usa vía pyodbc")
+Rel(odbc, bd, "TDS local")
+Rel(ci, bdci, "crea, prueba y mide", "pyodbc · ODBC 18 · TCP 1433")
 
 SHOW_LEGEND()
-footer Sin servidores remotos ni nube. Respaldo recomendado: copia de seguridad programada de ClubFutbolDB.
+footer En el club no hay servidores remotos ni nube; GitHub Actions solo se usa para validar el código. Respaldo recomendado: copia de seguridad programada de ClubFutbolDB.
 @enduml
