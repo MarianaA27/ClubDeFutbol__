@@ -34,10 +34,12 @@ aislado y depurado en `src/paladinesfc/legado/`.
 | P4 | La misma regla de negocio está en varios lugares y otras no se cumplen en ninguno | [ADR-0004](docs/adr/0004-fuente-unica-de-reglas-de-negocio.md) |
 | P5 | SQL en la interfaz y búsquedas que descargan tablas completas | [ADR-0005](docs/adr/0005-repositorios-y-filtrado-en-sql.md) |
 
+**Documento final de arquitectura (PDF):** [`docs/Documento_Final_Arquitectura_PaladinesFC.pdf`](docs/Documento_Final_Arquitectura_PaladinesFC.pdf) ·
 **Documentación de arquitectura:** [`docs/arquitectura.md`](docs/arquitectura.md)
 (arquitectura, componentes, decisiones, escenarios de calidad y refactorización realizada) ·
 **Diagramas C4 v2, despliegue y secuencia:** [`docs/diagramas/`](docs/diagramas/) ·
-**Evaluación antes/después:** [`docs/evaluacion/`](docs/evaluacion/)
+**Evaluación antes/después:** [`docs/evaluacion/`](docs/evaluacion/) ·
+**Evidencias de funcionamiento:** [`docs/evidencias/`](docs/evidencias/)
 
 ## Arquitectura en una línea
 
@@ -57,6 +59,7 @@ Unit of Work, Repository, inyección de dependencias con raíz de composición, 
 │   ├── adr/                   una decisión de refactorización por archivo
 │   ├── diagramas/             C4 v2 (contexto, contenedores, componentes), despliegue y secuencia
 │   ├── evaluacion/            caracterización y resultados de las mediciones antes/después
+│   ├── evidencias/            capturas del sistema en ejecución y guion del flujo principal
 │   └── plan/                  backlog hacia la Semana 15
 ├── evaluacion/                scripts de medición (E1–E4), copia de la base y protocolo de historial
 ├── src/
@@ -192,7 +195,7 @@ python -m pytest --integracion   # + 47 pruebas contra un SQL Server real
 |---|---|---|
 | E1 Mantenibilidad: agregar el campo EPS | `python evaluacion/medir_e1.py --minutos N` | [`e1-mantenibilidad.md`](docs/evaluacion/e1-mantenibilidad.md) |
 | E2 Confiabilidad, E3 Seguridad, E4 Eficiencia | `python evaluacion/medir_escenarios.py` | [`resultados-mediciones.md`](docs/evaluacion/resultados-mediciones.md) |
-| E3 con datos reales (protocolo del Entregable 1) | `python evaluacion/protocolo_historial.py --base ClubFutbolDB_Copia` | [`protocolo-historial.md`](docs/evaluacion/protocolo-historial.md) |
+| E3 protocolo del Entregable 1 (§3.5), con datos de prueba | `python evaluacion/protocolo_historial.py --base ClubFutbolDB_Copia` | [`protocolo-historial.md`](docs/evaluacion/protocolo-historial.md) |
 | Las 18 operaciones: qué se conserva y qué cambió | `python -m pytest tests/test_caracterizacion.py -v` | [`caracterizacion.md`](docs/evaluacion/caracterizacion.md) |
 
 Detalles en [`evaluacion/README.md`](evaluacion/README.md).

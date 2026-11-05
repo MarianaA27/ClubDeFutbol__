@@ -52,8 +52,9 @@ presentacion  ──►  aplicacion  ──►  dominio
 2. La **aplicación** depende del dominio y de sus **puertos** (`aplicacion/puertos.py`), no
    de la infraestructura.
 3. La **infraestructura** implementa los puertos (unidad de trabajo y repositorios).
-4. La **presentación** solo llama a servicios de aplicación. El único lugar donde conoce la
-   infraestructura es la raíz de composición (`presentacion/contenedor.py`).
+4. La **presentación** solo llama a servicios de aplicación. Conoce la infraestructura solo en
+   la raíz de composición (`presentacion/contenedor.py`) y en el manejo de errores de la API
+   (`presentacion/api/errores.py`, que registra en la bitácora y reconoce los errores de pyodbc).
 5. El código **legado** solo lo usan las pantallas fuera del MVP.
 
 ### 3.2 Estructura de paquetes
@@ -61,14 +62,14 @@ presentacion  ──►  aplicacion  ──►  dominio
 ```
 src/
 ├── paladinesfc/
-│   ├── presentacion/      app.py (CustomTkinter), contenedor.py
+│   ├── presentacion/      app.py (CustomTkinter), api/ (FastAPI), contenedor.py
 │   ├── aplicacion/        puertos.py, *_service.py
 │   ├── dominio/           jugador.py, tutor.py, profesor.py, vinculo.py, validaciones.py, errores.py
 │   ├── infraestructura/   config.py, conexion.py, unidad_trabajo.py, mapeo.py, bitacora.py, repositorios/
 │   └── legado/            crud.py, db.py (módulos fuera del MVP)
 └── sql/
     ├── ClubFutbolDB.sql   esquema original
-    └── migraciones/       cambios de esquema versionados
+    └── migraciones/       001 a 004, versionadas e idempotentes
 ```
 
 ### 3.3 Vistas (C4, versión 2: cómo quedó el sistema)
@@ -158,7 +159,7 @@ agrega un escenario secundario de Eficiencia.
 | Entorno | Operación normal, desde la ventana de detalle del jugador |
 | Artefacto | `VinculacionService.cambiar_principal`, `UnidadDeTrabajoSql`, tabla `JUGADOR_TUTOR` |
 | Respuesta | La operación completa se revierte; el jugador conserva su acudiente principal; la usuaria ve un mensaje comprensible; el fallo queda en la bitácora |
-| Medida | Cero estados parciales en 10 inyecciones controladas de fallo; 100 % de los fallos registrados en la bitácora. **Verificado** por `tests/test_unidad_trabajo.py` |
+| Medida | Cero estados parciales en 10 inyecciones controladas de fallo; 100 % de los fallos registrados en la bitácora. **Verificado** con dobles (`tests/test_unidad_trabajo.py`), contra SQL Server real (`tests/integracion/test_transacciones_sqlserver.py`) y medido antes/después en [`evaluacion/resultados-mediciones.md`](evaluacion/resultados-mediciones.md) |
 
 ### E3 — Seguridad: baja de un profesor con historial
 
