@@ -176,6 +176,7 @@ endpoint se puede probar con el botón **Try it out**.
 ```bash
 python -m pytest                 # 119 pruebas, sin SQL Server (dobles en memoria)
 python -m pytest --integracion   # + 47 pruebas contra un SQL Server real
+python -m pytest --cov=src/paladinesfc/dominio --cov=src/paladinesfc/aplicacion --cov-report=term   # cobertura (E1)
 ```
 
 * **Unitarias:** dominio, servicios, unidad de trabajo (10 fallos inyectados), repositorios,
@@ -194,7 +195,8 @@ python -m pytest --integracion   # + 47 pruebas contra un SQL Server real
 | Escenario | Script | Resultado |
 |---|---|---|
 | E1 Mantenibilidad: agregar el campo EPS | `python evaluacion/medir_e1.py --minutos N` | [`e1-mantenibilidad.md`](docs/evaluacion/e1-mantenibilidad.md) |
-| E2 Confiabilidad, E3 Seguridad, E4 Eficiencia | `python evaluacion/medir_escenarios.py` | [`resultados-mediciones.md`](docs/evaluacion/resultados-mediciones.md) |
+| E1 Mantenibilidad: cobertura del dominio y la aplicación (≥ 70 %) | `python -m pytest --cov=src/paladinesfc/dominio --cov=src/paladinesfc/aplicacion` | [`cobertura.md`](docs/evaluacion/cobertura.md) |
+| E2 Confiabilidad (estados parciales y tiempo de reversión), E3 Seguridad, E4 Eficiencia | `python evaluacion/medir_escenarios.py` | [`resultados-mediciones.md`](docs/evaluacion/resultados-mediciones.md) |
 | E3 protocolo del Entregable 1 (§3.5), con datos de prueba | `python evaluacion/protocolo_historial.py --base ClubFutbolDB_Copia` | [`protocolo-historial.md`](docs/evaluacion/protocolo-historial.md) |
 | Las 18 operaciones: qué se conserva y qué cambió | `python -m pytest tests/test_caracterizacion.py -v` | [`caracterizacion.md`](docs/evaluacion/caracterizacion.md) |
 

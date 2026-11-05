@@ -2,7 +2,9 @@
   "E2": {
     "repeticiones": 10,
     "parciales_antes": 10,
-    "parciales_despues": 0
+    "parciales_despues": 0,
+    "reversion_ms_mediana": 4.97,
+    "reversion_ms_maximo": 36.78
   },
   "E3": {
     "antes": {
@@ -65,12 +67,12 @@
       "entidad": "Tutores",
       "busqueda_filas_antes": 50,
       "busqueda_filas_despues": 1,
-      "busqueda_ms_antes": 7.24,
-      "busqueda_ms_despues": 6.86,
+      "busqueda_ms_antes": 13.27,
+      "busqueda_ms_despues": 11.26,
       "edicion_filas_antes": 50,
       "edicion_filas_despues": 1,
-      "edicion_ms_antes": 6.75,
-      "edicion_ms_despues": 6.79,
+      "edicion_ms_antes": 9.92,
+      "edicion_ms_despues": 11.71,
       "mismo_resultado": true
     },
     {
@@ -78,12 +80,12 @@
       "entidad": "Jugadores",
       "busqueda_filas_antes": 50,
       "busqueda_filas_despues": 1,
-      "busqueda_ms_antes": 7.9,
-      "busqueda_ms_despues": 6.71,
+      "busqueda_ms_antes": 10.38,
+      "busqueda_ms_despues": 9.81,
       "edicion_filas_antes": 50,
       "edicion_filas_despues": 1,
-      "edicion_ms_antes": 7.42,
-      "edicion_ms_despues": 6.39,
+      "edicion_ms_antes": 20.5,
+      "edicion_ms_despues": 14.96,
       "mismo_resultado": true
     },
     {
@@ -91,12 +93,12 @@
       "entidad": "Profesores",
       "busqueda_filas_antes": 50,
       "busqueda_filas_despues": 1,
-      "busqueda_ms_antes": 6.75,
-      "busqueda_ms_despues": 6.5,
+      "busqueda_ms_antes": 14.12,
+      "busqueda_ms_despues": 10.58,
       "edicion_filas_antes": 50,
       "edicion_filas_despues": 1,
-      "edicion_ms_antes": 6.6,
-      "edicion_ms_despues": 6.26,
+      "edicion_ms_antes": 9.51,
+      "edicion_ms_despues": 11.52,
       "mismo_resultado": true
     },
     {
@@ -104,12 +106,12 @@
       "entidad": "Tutores",
       "busqueda_filas_antes": 500,
       "busqueda_filas_despues": 1,
-      "busqueda_ms_antes": 8.82,
-      "busqueda_ms_despues": 7.56,
+      "busqueda_ms_antes": 10.45,
+      "busqueda_ms_despues": 9.87,
       "edicion_filas_antes": 500,
       "edicion_filas_despues": 1,
-      "edicion_ms_antes": 8.47,
-      "edicion_ms_despues": 6.62,
+      "edicion_ms_antes": 10.4,
+      "edicion_ms_despues": 9.18,
       "mismo_resultado": true
     },
     {
@@ -117,12 +119,12 @@
       "entidad": "Jugadores",
       "busqueda_filas_antes": 500,
       "busqueda_filas_despues": 1,
-      "busqueda_ms_antes": 10.77,
-      "busqueda_ms_despues": 7.16,
+      "busqueda_ms_antes": 12.33,
+      "busqueda_ms_despues": 9.23,
       "edicion_filas_antes": 500,
       "edicion_filas_despues": 1,
-      "edicion_ms_antes": 10.18,
-      "edicion_ms_despues": 6.32,
+      "edicion_ms_antes": 12.44,
+      "edicion_ms_despues": 8.8,
       "mismo_resultado": true
     },
     {
@@ -130,12 +132,12 @@
       "entidad": "Profesores",
       "busqueda_filas_antes": 500,
       "busqueda_filas_despues": 1,
-      "busqueda_ms_antes": 8.81,
-      "busqueda_ms_despues": 6.8,
+      "busqueda_ms_antes": 11.09,
+      "busqueda_ms_despues": 9.14,
       "edicion_filas_antes": 500,
       "edicion_filas_despues": 1,
-      "edicion_ms_antes": 8.71,
-      "edicion_ms_despues": 6.28,
+      "edicion_ms_antes": 10.71,
+      "edicion_ms_despues": 8.69,
       "mismo_resultado": true
     },
     {
@@ -143,12 +145,12 @@
       "entidad": "Tutores",
       "busqueda_filas_antes": 2000,
       "busqueda_filas_despues": 1,
-      "busqueda_ms_antes": 16.05,
-      "busqueda_ms_despues": 8.23,
+      "busqueda_ms_antes": 16.68,
+      "busqueda_ms_despues": 10.21,
       "edicion_filas_antes": 2000,
       "edicion_filas_despues": 1,
-      "edicion_ms_antes": 14.63,
-      "edicion_ms_despues": 6.61,
+      "edicion_ms_antes": 15.84,
+      "edicion_ms_despues": 9.12,
       "mismo_resultado": true
     },
     {
@@ -156,12 +158,12 @@
       "entidad": "Jugadores",
       "busqueda_filas_antes": 2000,
       "busqueda_filas_despues": 1,
-      "busqueda_ms_antes": 21.85,
-      "busqueda_ms_despues": 11.04,
+      "busqueda_ms_antes": 21.49,
+      "busqueda_ms_despues": 17.75,
       "edicion_filas_antes": 2000,
       "edicion_filas_despues": 1,
-      "edicion_ms_antes": 21.44,
-      "edicion_ms_despues": 6.46,
+      "edicion_ms_antes": 22.7,
+      "edicion_ms_despues": 9.79,
       "mismo_resultado": true
     },
     {
@@ -169,12 +171,12 @@
       "entidad": "Profesores",
       "busqueda_filas_antes": 2000,
       "busqueda_filas_despues": 1,
-      "busqueda_ms_antes": 16.24,
-      "busqueda_ms_despues": 8.11,
+      "busqueda_ms_antes": 17.73,
+      "busqueda_ms_despues": 9.62,
       "edicion_filas_antes": 2000,
       "edicion_filas_despues": 1,
-      "edicion_ms_antes": 16.2,
-      "edicion_ms_despues": 6.32,
+      "edicion_ms_antes": 18.5,
+      "edicion_ms_despues": 8.86,
       "mismo_resultado": true
     }
   ]

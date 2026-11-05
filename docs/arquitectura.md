@@ -220,7 +220,7 @@ El detalle de tareas está en [`plan/backlog-semana-15.md`](plan/backlog-semana-
 |---|---|---|---|
 | P1 Contrato posicional | Las pantallas leían `j[1]`, `r[6]`… y los desplegables comparaban el texto visible | [ADR-0001](adr/0001-entidades-de-dominio-y-mapeo-por-nombre.md) | Entidades de dominio y mapeo por nombre; 0 lecturas por posición en las pantallas del MVP (antes 98) |
 | P2 Sin atomicidad | `commit()` por sentencia; dos `UPDATE` sueltos al cambiar el acudiente principal | [ADR-0002](adr/0002-unidad-de-trabajo-transaccional.md) | `UnidadDeTrabajoSql`: una transacción por operación, reversión y bitácora |
-| P3 Borrado físico | `SP_EliminarProfesor` y `SP_EliminarJugador` borraban el historial en cascada | [ADR-0003](adr/0003-inactivacion-logica.md) | "Dar de baja" cambia el estado a `inactivo`; la migración 001 retira los SP de borrado |
+| P3 Borrado físico | `SP_EliminarProfesor` y `SP_EliminarJugador` borraban el historial en cascada | [ADR-0003](adr/0003-inactivacion-logica.md) | "Dar de baja" cambia el estado a `inactivo`; la migración 001 agrega `TUTOR.estado` y retira los SP de borrado, y la 003 retira los SP de inserción y actualización y las vistas `VW_Detalle*` que el MVP reemplazó |
 | P4 Reglas duplicadas | El estado del jugador se validaba en 4 lugares; nadie garantizaba "un acudiente principal" | [ADR-0004](adr/0004-fuente-unica-de-reglas-de-negocio.md) | Reglas en `dominio/` (`validaciones.py`, agregado `TutoresDelJugador`) e índices únicos como defensa en la base |
 | P5 Capas violadas y consultas ineficientes | `DELETE` en la presentación; búsquedas que traían la tabla completa | [ADR-0005](adr/0005-repositorios-y-filtrado-en-sql.md) | Repositorios con `WHERE`; las pantallas del MVP solo llaman a servicios |
 
@@ -232,16 +232,22 @@ la versión original y la nueva.
 | Escenario | Atributo | Medida | Antes | Después | ¿Cumple? | Evidencia |
 |---|---|---|---|---|---|---|
 | E1 | Mantenibilidad | Lecturas por posición en las pantallas del MVP | 98 | 0 | Sí | [e1-mantenibilidad.md](evaluacion/e1-mantenibilidad.md) |
-| E1 | Mantenibilidad | Archivos fuera del módulo Jugadores al agregar la EPS | — | 0 (5 archivos, uno por capa) | Sí | [e1-mantenibilidad.md](evaluacion/e1-mantenibilidad.md) |
+| E1 | Mantenibilidad | Archivos de producción modificados al agregar la EPS (medida: máximo 4) | — | 5, uno por capa, 0 fuera del módulo Jugadores | Parcial: se cumple "uno por capa", no "máximo 4" | [e1-mantenibilidad.md](evaluacion/e1-mantenibilidad.md) |
+| E1 | Mantenibilidad | Pruebas existentes que pasan tras el cambio | — | 119 de 119 | Sí | [e1-mantenibilidad.md](evaluacion/e1-mantenibilidad.md) |
+| E1 | Mantenibilidad | Cobertura de pruebas del dominio y la aplicación (meta del Entregable 1: ≥ 70 %) | — | 93–100 % por archivo (96 % en total) | Sí | [cobertura.md](evaluacion/cobertura.md) |
 | E2 | Confiabilidad | Estados parciales en 10 fallos inyectados | 10 | 0 | Sí | [resultados-mediciones.md](evaluacion/resultados-mediciones.md) |
+| E2 | Confiabilidad | Tiempo de reversión (medida de la Semana 8: < 2 s) | — | ver `resultados-mediciones.md` | Se mide con `medir_escenarios.py` | [resultados-mediciones.md](evaluacion/resultados-mediciones.md) |
+| E2 | Confiabilidad | Fallos registrados en la bitácora | — | 100 % | Sí | `tests/integracion/test_transacciones_sqlserver.py` |
 | E3 | Seguridad | Filas de historial perdidas al dar de baja a un profesor y a un jugador | 57 (50 + 7) | 0 | Sí | [resultados-mediciones.md](evaluacion/resultados-mediciones.md) |
 | E3 | Seguridad | Criterios del protocolo de preservación del historial | — | 6 de 6 | Sí, con datos de prueba | [protocolo-historial.md](evaluacion/protocolo-historial.md) |
-| E4 | Eficiencia | Filas transferidas al buscar o editar, con 2000 registros | 2000 | 1 | Sí | [resultados-mediciones.md](evaluacion/resultados-mediciones.md) |
+| E3 | Seguridad (integridad, Entregable 1) | Asignaciones correctas con dos tutores homónimos | El jugador quedaba con el primero de la lista | 100 %: el vínculo apunta al tutor elegido (por id) | Sí | `tests/test_servicios.py::test_homonimos_se_resuelven_por_id`, `tests/test_presentacion_humo.py` |
+| E4 | Eficiencia | Filas transferidas al abrir la edición, con 2000 registros | 2000 | 1 | Sí | [resultados-mediciones.md](evaluacion/resultados-mediciones.md) |
 
 **Límites de estas mediciones**
 
-* **E1:** el tiempo del cambio no se registró, así que el criterio de "menos de 4 horas"
-  queda sin medir.
+* **E1:** el cambio tocó 5 archivos, no los 4 que estimó la Semana 13, porque el servicio
+  de aplicación también cambió (ver §9.3). Además, el tiempo del cambio no se registró, así
+  que el criterio de "menos de 4 horas" queda sin medir.
 * **E3, protocolo:** se ejecutó sobre una base preparada por el equipo, con datos de prueba
   y con las migraciones ya aplicadas, no sobre los datos reales del club.
 * **E4:** los tiempos dependen del equipo. La cifra comparable es la de filas transferidas:
@@ -258,10 +264,11 @@ cambio.
 | Planeado | Lo que se hizo | Por qué |
 |---|---|---|
 | Una sola presentación de escritorio (§3.1) | Se agregó una API REST con FastAPI (27 rutas) sobre los mismos servicios | La rúbrica de la Semana 15 pide endpoints REST. No hubo que cambiar las reglas de negocio para agregarla |
-| E1: máximo 4 archivos | 5 archivos de producción | Los casos de uso del servicio reciben los datos como parámetros explícitos, así que también cambió. Se mantuvo el criterio de fondo: uno por capa y nada fuera del módulo |
+| E1: máximo 4 archivos | 5 archivos de producción | Los casos de uso del servicio reciben los datos como parámetros explícitos, así que también cambió. El criterio numérico no se cumple tal como se definió; sí el de fondo: uno por capa y nada fuera del módulo |
+| E2: reversión en menos de 2 s (Semana 8) | La Entrega 3 omitió este criterio sin declararlo; se recuperó y se mide en `evaluacion/medir_escenarios.py` | Mantener la trazabilidad con el escenario de la Semana 8 |
 | Solo la migración 001 | Cuatro migraciones (001 a 004) | 002 agrega la EPS (E1), 003 retira los objetos reemplazados y 004 repara `SP_AsignarJugadorPlantilla` en bases existentes |
 | Probar sobre todo con dobles en memoria | Pruebas de integración contra SQL Server real | Lo pidió la retroalimentación del Entregable 3. Encontraron dos defectos que los dobles no veían: un `GO` faltante en `ClubFutbolDB.sql` y un `rollback()` fallido que ocultaba el error original |
-| Limpieza de 14 funciones sin uso y 2 duplicadas (P5) | Se retiraron 39 funciones sin uso y las definiciones duplicadas | La limpieza final de `legado/crud.py` abarcó más funciones que el diagnóstico inicial |
+| Limpieza de 14 funciones sin uso y 2 duplicadas (P5) | Se retiraron 41 definiciones de `legado/crud.py`: 39 funciones sin uso y las 2 duplicadas | La limpieza final de `legado/crud.py` abarcó más funciones que el diagnóstico inicial |
 | Migración y protocolo sobre una copia de la base real | Se ejecutaron sobre una copia de una base preparada, con datos de prueba y ya migrada | No se contó con una copia de los datos reales sin migrar. Esa ejecución demuestra la idempotencia; la aplicación sobre una base nueva la cubren las pruebas de integración |
 | Esquema preservado (Entregable 1) | La migración 001 agrega `TUTOR.estado` y la 002 agrega `JUGADOR.eps` | Son cambios aditivos que necesitan la baja de tutores y el escenario E1 |
 

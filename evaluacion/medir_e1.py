@@ -86,6 +86,15 @@ def cambio_e1() -> tuple[list[str], dict[str, tuple[int, int]]]:
     return commits, archivos
 
 
+def ejecutar_pruebas() -> tuple[bool, str]:
+    """Ejecuta la suite unitaria (sin SQL Server) y devuelve (todo aprobado, línea de resumen)."""
+    proceso = subprocess.run([sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider"],
+                             cwd=RAIZ, capture_output=True, text=True, encoding="utf-8")
+    lineas = [l for l in proceso.stdout.splitlines() if l.strip()]
+    resumen = lineas[-1].strip("= ") if lineas else "sin salida de pytest"
+    return proceso.returncode == 0, resumen
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--minutos", type=int, help="Tiempo que tomó el cambio (medida: < 240 min).")
@@ -125,6 +134,9 @@ def main() -> int:
     filas_pruebas = "\n".join(f"| `{r}` | +{a} / −{b} |" for r, (a, b) in sorted(pruebas.items())) or "| — | — |"
     tiempo = f"{args.minutos} minutos" if args.minutos else "sin registrar (use --minutos)"
     cumple_tiempo = "Sí" if args.minutos and args.minutos < 240 else ("No" if args.minutos else "—")
+    max_planeado = 4   # medida de la Semana 13: "máximo 4 archivos, uno por capa"
+    cumple_maximo = "Sí" if len(produccion) <= max_planeado else f"No ({len(produccion)} > {max_planeado})"
+    pruebas_ok, resumen_pruebas = ejecutar_pruebas()
 
     md = f"""# Escenario E1 — Mantenibilidad: medición antes/después
 
@@ -163,18 +175,22 @@ Pruebas agregadas o ajustadas:
 
 | Criterio (Semana 13) | Resultado | ¿Cumple? |
 |---|---|---|
+| Máximo {max_planeado} archivos | {len(produccion)} archivos de producción | {cumple_maximo} |
 | Un archivo por capa | {len(produccion)} archivos de producción en {len(set(capas))} capas | {"Sí" if una_por_capa else "No"} |
 | Ningún archivo fuera del módulo Jugadores | {len(fuera_del_modulo)} fuera del módulo | {"Sí" if not fuera_del_modulo else "No"} |
 | Cero accesos por índice | {total_despues} lecturas posicionales en las pantallas del MVP (antes {total_antes}) | {"Sí" if total_despues == 0 else "No"} |
 | Menos de 4 horas | {tiempo} | {cumple_tiempo} |
-| Las pruebas existentes pasan | Ver la ejecución de `python -m pytest` en el PR del cambio | — |
+| Las pruebas existentes pasan | `python -m pytest`: {resumen_pruebas} | {"Sí" if pruebas_ok else "No"} |
 
-**Diferencia con lo planeado.** La medida de la Semana 13 estimó "máximo 4 archivos"
+**Resultado global de E1: {"cumple" if len(produccion) <= max_planeado and pruebas_ok and total_despues == 0 and not fuera_del_modulo else "cumple parcialmente"}.**
+
+**Diferencia con lo planeado.** La medida de la Semana 13 estimó "máximo {max_planeado} archivos"
 (migración, entidad, repositorio y pantalla). El cambio real tocó también el
 servicio de aplicación, porque sus casos de uso reciben los datos como parámetros
-explícitos. Se cumple el criterio de fondo —un archivo por capa y nada fuera del
-módulo—, pero el número correcto para esta arquitectura es uno por cada una de sus
-{len(CAPAS)} capas.
+explícitos. Por eso el criterio numérico **no se cumple tal como se definió**
+({len(produccion)} archivos en lugar de {max_planeado}). Sí se cumple el criterio de fondo —un archivo
+por capa y nada fuera del módulo—, y para esta arquitectura el número correcto es uno
+por cada una de sus {len(CAPAS)} capas. El tiempo del cambio no se registró.
 """
     SALIDA.parent.mkdir(parents=True, exist_ok=True)
     SALIDA.write_text(md, encoding="utf-8")
