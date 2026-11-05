@@ -236,7 +236,7 @@ la versión original y la nueva.
 | E1 | Mantenibilidad | Pruebas existentes que pasan tras el cambio | — | 119 de 119 | Sí | [e1-mantenibilidad.md](evaluacion/e1-mantenibilidad.md) |
 | E1 | Mantenibilidad | Cobertura de pruebas del dominio y la aplicación (meta del Entregable 1: ≥ 70 %) | — | 93–100 % por archivo (96 % en total) | Sí | [cobertura.md](evaluacion/cobertura.md) |
 | E2 | Confiabilidad | Estados parciales en 10 fallos inyectados | 10 | 0 | Sí | [resultados-mediciones.md](evaluacion/resultados-mediciones.md) |
-| E2 | Confiabilidad | Tiempo de reversión (medida de la Semana 8: < 2 s) | — | ver `resultados-mediciones.md` | Se mide con `medir_escenarios.py` | [resultados-mediciones.md](evaluacion/resultados-mediciones.md) |
+| E2 | Confiabilidad | Tiempo de reversión (medida de la Semana 8: < 2 s) | — | 36,78 ms como máximo (mediana 4,97 ms) en 10 fallos | Sí | [resultados-mediciones.md](evaluacion/resultados-mediciones.md) |
 | E2 | Confiabilidad | Fallos registrados en la bitácora | — | 100 % | Sí | `tests/integracion/test_transacciones_sqlserver.py` |
 | E3 | Seguridad | Filas de historial perdidas al dar de baja a un profesor y a un jugador | 57 (50 + 7) | 0 | Sí | [resultados-mediciones.md](evaluacion/resultados-mediciones.md) |
 | E3 | Seguridad | Criterios del protocolo de preservación del historial | — | 6 de 6 | Sí, con datos de prueba | [protocolo-historial.md](evaluacion/protocolo-historial.md) |
