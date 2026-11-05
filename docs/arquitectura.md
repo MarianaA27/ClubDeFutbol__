@@ -184,6 +184,8 @@ agrega un escenario secundario de Eficiencia.
 
 ## 7. Estado de implementación
 
+> Estado al cierre del Entregable 3. El resultado final está en la [§9](#9-refactorización-realizada).
+
 | Decisión | Estado | Evidencia verificable |
 |---|---|---|
 | ADR-0001 | Implementada en las pantallas y repositorios del MVP | `tests/test_mapeo.py`, `tests/test_presentacion_humo.py` |
@@ -196,6 +198,8 @@ agrega un escenario secundario de Eficiencia.
 
 ## 8. Riesgos y pendientes hacia la Semana 15
 
+> Riesgos registrados en el Entregable 3. Cómo se resolvieron: [§9.3](#93-qué-cambió-frente-a-lo-planeado-y-por-qué).
+
 | Riesgo / pendiente | Mitigación | Semana |
 |---|---|---|
 | Las pruebas actuales usan dobles en memoria; falta probar los repositorios contra SQL Server real | Pruebas de integración sobre una copia de `ClubFutbolDB` | 14 |
@@ -206,3 +210,70 @@ agrega un escenario secundario de Eficiencia.
 | Diagramas C4 versión 2 e informe final | Actualizar vistas con lo implementado | 15 |
 
 El detalle de tareas está en [`plan/backlog-semana-15.md`](plan/backlog-semana-15.md) y en el tablero del repositorio.
+
+## 9. Refactorización realizada
+
+### 9.1 Problemas de la Semana 3 y decisiones aplicadas
+
+| Problema | Antes | Decisión aplicada | Cómo quedó |
+|---|---|---|---|
+| P1 Contrato posicional | Las pantallas leían `j[1]`, `r[6]`… y los desplegables comparaban el texto visible | [ADR-0001](adr/0001-entidades-de-dominio-y-mapeo-por-nombre.md) | Entidades de dominio y mapeo por nombre; 0 lecturas por posición en las pantallas del MVP (antes 98) |
+| P2 Sin atomicidad | `commit()` por sentencia; dos `UPDATE` sueltos al cambiar el acudiente principal | [ADR-0002](adr/0002-unidad-de-trabajo-transaccional.md) | `UnidadDeTrabajoSql`: una transacción por operación, reversión y bitácora |
+| P3 Borrado físico | `SP_EliminarProfesor` y `SP_EliminarJugador` borraban el historial en cascada | [ADR-0003](adr/0003-inactivacion-logica.md) | "Dar de baja" cambia el estado a `inactivo`; la migración 001 retira los SP de borrado |
+| P4 Reglas duplicadas | El estado del jugador se validaba en 4 lugares; nadie garantizaba "un acudiente principal" | [ADR-0004](adr/0004-fuente-unica-de-reglas-de-negocio.md) | Reglas en `dominio/` (`validaciones.py`, agregado `TutoresDelJugador`) e índices únicos como defensa en la base |
+| P5 Capas violadas y consultas ineficientes | `DELETE` en la presentación; búsquedas que traían la tabla completa | [ADR-0005](adr/0005-repositorios-y-filtrado-en-sql.md) | Repositorios con `WHERE`; las pantallas del MVP solo llaman a servicios |
+
+### 9.2 Mejora de los atributos de calidad
+
+Resultados de los scripts de [`evaluacion/`](../evaluacion/), con la misma operación sobre
+la versión original y la nueva.
+
+| Escenario | Atributo | Medida | Antes | Después | ¿Cumple? | Evidencia |
+|---|---|---|---|---|---|---|
+| E1 | Mantenibilidad | Lecturas por posición en las pantallas del MVP | 98 | 0 | Sí | [e1-mantenibilidad.md](evaluacion/e1-mantenibilidad.md) |
+| E1 | Mantenibilidad | Archivos fuera del módulo Jugadores al agregar la EPS | — | 0 (5 archivos, uno por capa) | Sí | [e1-mantenibilidad.md](evaluacion/e1-mantenibilidad.md) |
+| E2 | Confiabilidad | Estados parciales en 10 fallos inyectados | 10 | 0 | Sí | [resultados-mediciones.md](evaluacion/resultados-mediciones.md) |
+| E3 | Seguridad | Filas de historial perdidas al dar de baja a un profesor y a un jugador | 57 (50 + 7) | 0 | Sí | [resultados-mediciones.md](evaluacion/resultados-mediciones.md) |
+| E3 | Seguridad | Criterios del protocolo de preservación del historial | — | 6 de 6 | Sí, con datos de prueba | [protocolo-historial.md](evaluacion/protocolo-historial.md) |
+| E4 | Eficiencia | Filas transferidas al buscar o editar, con 2000 registros | 2000 | 1 | Sí | [resultados-mediciones.md](evaluacion/resultados-mediciones.md) |
+
+**Límites de estas mediciones**
+
+* **E1:** el tiempo del cambio no se registró, así que el criterio de "menos de 4 horas"
+  queda sin medir.
+* **E3, protocolo:** se ejecutó sobre una base preparada por el equipo, con datos de prueba
+  y con las migraciones ya aplicadas, no sobre los datos reales del club.
+* **E4:** los tiempos dependen del equipo. La cifra comparable es la de filas transferidas:
+  antes crecía con la tabla y ahora es constante.
+
+**Comportamiento y pruebas:** las 18 operaciones del MVP están
+[caracterizadas](evaluacion/caracterizacion.md) y cada cambio de comportamiento está
+identificado como deliberado. `python -m pytest --integracion` ejecuta 166 pruebas contra
+SQL Server, y la [integración continua](../.github/workflows/ci.yml) las repite en cada
+cambio.
+
+### 9.3 Qué cambió frente a lo planeado y por qué
+
+| Planeado | Lo que se hizo | Por qué |
+|---|---|---|
+| Una sola presentación de escritorio (§3.1) | Se agregó una API REST con FastAPI (27 rutas) sobre los mismos servicios | La rúbrica de la Semana 15 pide endpoints REST. No hubo que cambiar las reglas de negocio para agregarla |
+| E1: máximo 4 archivos | 5 archivos de producción | Los casos de uso del servicio reciben los datos como parámetros explícitos, así que también cambió. Se mantuvo el criterio de fondo: uno por capa y nada fuera del módulo |
+| Solo la migración 001 | Cuatro migraciones (001 a 004) | 002 agrega la EPS (E1), 003 retira los objetos reemplazados y 004 repara `SP_AsignarJugadorPlantilla` en bases existentes |
+| Probar sobre todo con dobles en memoria | Pruebas de integración contra SQL Server real | Lo pidió la retroalimentación del Entregable 3. Encontraron dos defectos que los dobles no veían: un `GO` faltante en `ClubFutbolDB.sql` y un `rollback()` fallido que ocultaba el error original |
+| Limpieza de 14 funciones sin uso y 2 duplicadas (P5) | Se retiraron 39 funciones sin uso y las definiciones duplicadas | La limpieza final de `legado/crud.py` abarcó más funciones que el diagnóstico inicial |
+| Migración y protocolo sobre una copia de la base real | Se ejecutaron sobre una copia de una base preparada, con datos de prueba y ya migrada | No se contó con una copia de los datos reales sin migrar. Esa ejecución demuestra la idempotencia; la aplicación sobre una base nueva la cubren las pruebas de integración |
+| Esquema preservado (Entregable 1) | La migración 001 agrega `TUTOR.estado` y la 002 agrega `JUGADOR.eps` | Son cambios aditivos que necesitan la baja de tutores y el escenario E1 |
+
+## 10. Patrones aplicados
+
+| Patrón | Dónde se aplica | Qué resuelve |
+|---|---|---|
+| Arquitectura en capas | `src/paladinesfc/{presentacion,aplicacion,dominio,infraestructura}/` | Separa responsabilidades y fija el sentido de las dependencias (P5) |
+| Inversión de dependencias (puertos) | `aplicacion/puertos.py`, implementados en `infraestructura/` | Los servicios no dependen de pyodbc y se pueden probar en memoria |
+| Unit of Work | `infraestructura/unidad_trabajo.py` | Una transacción por operación de negocio (P2) |
+| Repository | `infraestructura/repositorios/` | Concentra el SQL del MVP y filtra en el motor (P5) |
+| Data Mapper | `infraestructura/mapeo.py` y `desde_bd()` en las entidades de `dominio/` | Convierte filas en objetos por nombre de columna, no por posición (P1) |
+| Aggregate | `TutoresDelJugador` en `dominio/vinculo.py` | Garantiza al menos un tutor y exactamente un principal (P4) |
+| Service Layer | `aplicacion/*_service.py` | Cada caso de uso tiene un solo punto de entrada para el escritorio y la API |
+| Inyección de dependencias y raíz de composición | `presentacion/contenedor.py`, `presentacion/api/dependencias.py` | Solo un lugar de la presentación conoce la infraestructura |
+| Adapter | `presentacion/app.py` (escritorio) y `presentacion/api/` (REST) | Dos interfaces usan los mismos servicios sin duplicar reglas |
