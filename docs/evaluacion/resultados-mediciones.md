@@ -1,6 +1,6 @@
 # Mediciones antes/después de los escenarios de calidad
 
-Generado por `python evaluacion/medir_escenarios.py` el 2026-11-04 23:47 sobre la base `ClubFutbolDB_MedicionDespues` en `localhost,1433`.
+Generado por `python evaluacion/medir_escenarios.py` el 2026-11-05 12:54 sobre la base `ClubFutbolDB_MedicionDespues` en `QIYIB\SQLEXPRESS`.
 
 Misma operación, mismos datos, mismo servidor: **antes** = esquema original + código
 original (`evaluacion/original/crud_mvp_original.py`, copia fiel de `crud.py`);
@@ -11,6 +11,7 @@ original (`evaluacion/original/crud_mvp_original.py`, copia fiel de `crud.py`);
 | Escenario | Antes | Después | Medida (Semana 13) | ¿Cumple? |
 |---|---|---|---|---|
 | E2 Confiabilidad | 10 de 10 fallos dejan al jugador sin principal | 0 de 10 | 0 estados parciales en 10 fallos | Sí |
+| E2 Confiabilidad (tiempo) | — | reversión en 36.78 ms como máximo | Reversión en menos de 2 s (Semana 8) | Sí |
 | E3 Seguridad | 57 filas de historial borradas | 0 filas | Conteos idénticos | Sí |
 | E4 Eficiencia | edición: 2000 filas con 2000 registros | edición: 1 fila | ≥ 90 % menos filas con ≥ 50 registros | Sí |
 
@@ -24,6 +25,10 @@ acudiente principal.
 |---|---|---|
 | Antes (`set_acudiente_principal`, commit por sentencia) | 10 | 10 |
 | Después (`VinculacionService` + unidad de trabajo) | 10 | 0 |
+
+**Tiempo de reversión** (medida de la Semana 8: menos de 2 segundos): desde que se ordena
+el cambio hasta que la unidad de trabajo terminó el `ROLLBACK` y cerró la conexión.
+Mediana 4.97 ms; máximo 36.78 ms en 10 fallos.
 
 ## E3 — Filas de historial perdidas al dar de baja
 
@@ -54,29 +59,29 @@ con 3 pagos, morosidad, 2 asistencias y su acudiente.
 
 | Registros | Entidad | Filas antes | Filas después | Reducción | ms antes | ms después | ¿Mismo resultado? |
 |---|---|---|---|---|---|---|---|
-| 50 | Tutores | 50 | 1 | 98.0 % | 7.24 | 6.86 | Sí |
-| 50 | Jugadores | 50 | 1 | 98.0 % | 7.9 | 6.71 | Sí |
-| 50 | Profesores | 50 | 1 | 98.0 % | 6.75 | 6.5 | Sí |
-| 500 | Tutores | 500 | 1 | 99.8 % | 8.82 | 7.56 | Sí |
-| 500 | Jugadores | 500 | 1 | 99.8 % | 10.77 | 7.16 | Sí |
-| 500 | Profesores | 500 | 1 | 99.8 % | 8.81 | 6.8 | Sí |
-| 2000 | Tutores | 2000 | 1 | 100.0 % | 16.05 | 8.23 | Sí |
-| 2000 | Jugadores | 2000 | 1 | 100.0 % | 21.85 | 11.04 | Sí |
-| 2000 | Profesores | 2000 | 1 | 100.0 % | 16.24 | 8.11 | Sí |
+| 50 | Tutores | 50 | 1 | 98.0 % | 13.27 | 11.26 | Sí |
+| 50 | Jugadores | 50 | 1 | 98.0 % | 10.38 | 9.81 | Sí |
+| 50 | Profesores | 50 | 1 | 98.0 % | 14.12 | 10.58 | Sí |
+| 500 | Tutores | 500 | 1 | 99.8 % | 10.45 | 9.87 | Sí |
+| 500 | Jugadores | 500 | 1 | 99.8 % | 12.33 | 9.23 | Sí |
+| 500 | Profesores | 500 | 1 | 99.8 % | 11.09 | 9.14 | Sí |
+| 2000 | Tutores | 2000 | 1 | 100.0 % | 16.68 | 10.21 | Sí |
+| 2000 | Jugadores | 2000 | 1 | 100.0 % | 21.49 | 17.75 | Sí |
+| 2000 | Profesores | 2000 | 1 | 100.0 % | 17.73 | 9.62 | Sí |
 
 **Abrir el formulario de edición** de un registro:
 
 | Registros | Entidad | Filas antes | Filas después | Reducción | ms antes | ms después |
 |---|---|---|---|---|---|---|
-| 50 | Tutores | 50 | 1 | 98.0 % | 6.75 | 6.79 |
-| 50 | Jugadores | 50 | 1 | 98.0 % | 7.42 | 6.39 |
-| 50 | Profesores | 50 | 1 | 98.0 % | 6.6 | 6.26 |
-| 500 | Tutores | 500 | 1 | 99.8 % | 8.47 | 6.62 |
-| 500 | Jugadores | 500 | 1 | 99.8 % | 10.18 | 6.32 |
-| 500 | Profesores | 500 | 1 | 99.8 % | 8.71 | 6.28 |
-| 2000 | Tutores | 2000 | 1 | 100.0 % | 14.63 | 6.61 |
-| 2000 | Jugadores | 2000 | 1 | 100.0 % | 21.44 | 6.46 |
-| 2000 | Profesores | 2000 | 1 | 100.0 % | 16.2 | 6.32 |
+| 50 | Tutores | 50 | 1 | 98.0 % | 9.92 | 11.71 |
+| 50 | Jugadores | 50 | 1 | 98.0 % | 20.5 | 14.96 |
+| 50 | Profesores | 50 | 1 | 98.0 % | 9.51 | 11.52 |
+| 500 | Tutores | 500 | 1 | 99.8 % | 10.4 | 9.18 |
+| 500 | Jugadores | 500 | 1 | 99.8 % | 12.44 | 8.8 |
+| 500 | Profesores | 500 | 1 | 99.8 % | 10.71 | 8.69 |
+| 2000 | Tutores | 2000 | 1 | 100.0 % | 15.84 | 9.12 |
+| 2000 | Jugadores | 2000 | 1 | 100.0 % | 22.7 | 9.79 |
+| 2000 | Profesores | 2000 | 1 | 100.0 % | 18.5 | 8.86 |
 
 Los tiempos dependen del equipo; la cifra que no depende del equipo es la de filas
 transferidas: antes crecía con la tabla y ahora es constante.

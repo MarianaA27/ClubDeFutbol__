@@ -80,6 +80,7 @@ def sembrar_volumen(cfg, n: int) -> None:
 def medir_e2(antes, despues, repeticiones: int) -> dict:
     print(f"E2: {repeticiones} fallos inyectados con cada versión...")
     parciales_antes = parciales_despues = 0
+    tiempos_reversion: list[float] = []
     ejecutar_real = original.ejecutar_query
     siembra_antes, siembra_despues = bp.Siembra(antes), bp.Siembra(despues)
     for _ in range(repeticiones):
@@ -106,15 +107,19 @@ def medir_e2(antes, despues, repeticiones: int) -> dict:
         # Después: VinculacionService con unidad de trabajo; mismo punto de fallo.
         j, t1, t2 = siembra_despues.jugador_con_dos_tutores()
         servicio = bp.servicios(despues, lambda: bp.ConexionConFallo(bp.conectar(despues))).vinculacion
+        inicio = time.perf_counter()   # desde la orden hasta que la operación quedó revertida
         try:
             servicio.cambiar_principal(j, t2)
         except bp.ConexionPerdida:
             pass
+        tiempos_reversion.append((time.perf_counter() - inicio) * 1000)
         if bp.principales_de(despues, j) != [t1]:
             parciales_despues += 1
     siembra_antes.cerrar()
     siembra_despues.cerrar()
-    return {"repeticiones": repeticiones, "parciales_antes": parciales_antes, "parciales_despues": parciales_despues}
+    return {"repeticiones": repeticiones, "parciales_antes": parciales_antes, "parciales_despues": parciales_despues,
+            "reversion_ms_mediana": round(statistics.median(tiempos_reversion), 2),
+            "reversion_ms_maximo": round(max(tiempos_reversion), 2)}
 
 
 # ── E3 ─────────────────────────────────────────────────────────────────────
@@ -261,6 +266,8 @@ def informe(cfg, e2, e3, e4) -> str:
         ["E2 Confiabilidad", f"{e2['parciales_antes']} de {e2['repeticiones']} fallos dejan al jugador sin principal",
          f"{e2['parciales_despues']} de {e2['repeticiones']}", "0 estados parciales en 10 fallos",
          si_no(e2["parciales_despues"] == 0)],
+        ["E2 Confiabilidad (tiempo)", "—", f"reversión en {e2['reversion_ms_maximo']} ms como máximo",
+         "Reversión en menos de 2 s (Semana 8)", si_no(e2["reversion_ms_maximo"] < 2000)],
         ["E3 Seguridad", f"{perdidas(a['perdidas_baja_profesor']) + perdidas(a['perdidas_baja_jugador'])} filas de historial borradas",
          f"{perdidas(d['perdidas_baja_profesor']) + perdidas(d['perdidas_baja_jugador']) + perdidas(d['perdidas_jugador_con_pago_de_mora'])} filas",
          "Conteos idénticos", si_no(perdidas(d["perdidas_baja_profesor"]) + perdidas(d["perdidas_baja_jugador"])
@@ -286,6 +293,10 @@ acudiente principal.
 {tabla_md(["Versión", "Fallos inyectados", "Estados parciales"],
           [["Antes (`set_acudiente_principal`, commit por sentencia)", e2["repeticiones"], e2["parciales_antes"]],
            ["Después (`VinculacionService` + unidad de trabajo)", e2["repeticiones"], e2["parciales_despues"]]])}
+
+**Tiempo de reversión** (medida de la Semana 8: menos de 2 segundos): desde que se ordena
+el cambio hasta que la unidad de trabajo terminó el `ROLLBACK` y cerró la conexión.
+Mediana {e2['reversion_ms_mediana']} ms; máximo {e2['reversion_ms_maximo']} ms en {e2['repeticiones']} fallos.
 
 ## E3 — Filas de historial perdidas al dar de baja
 

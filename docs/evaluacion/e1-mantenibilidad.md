@@ -1,6 +1,6 @@
 # Escenario E1 — Mantenibilidad: medición antes/después
 
-Generado por `python evaluacion/medir_e1.py` el 2026-11-03.
+Generado por `python evaluacion/medir_e1.py` el 2026-11-05.
 Original tomado de: primera versión de app.py en el historial de git.
 
 **Estímulo:** agregar "entidad de salud (EPS)" al jugador: capturarlo al registrar,
@@ -50,15 +50,19 @@ Otros archivos: `src/sql/migraciones/README.md`
 
 | Criterio (Semana 13) | Resultado | ¿Cumple? |
 |---|---|---|
+| Máximo 4 archivos | 5 archivos de producción | No (5 > 4) |
 | Un archivo por capa | 5 archivos de producción en 5 capas | Sí |
 | Ningún archivo fuera del módulo Jugadores | 0 fuera del módulo | Sí |
 | Cero accesos por índice | 0 lecturas posicionales en las pantallas del MVP (antes 98) | Sí |
 | Menos de 4 horas | sin registrar (use --minutos) | — |
-| Las pruebas existentes pasan | Ver la ejecución de `python -m pytest` en el PR del cambio | — |
+| Las pruebas existentes pasan | `python -m pytest`: 119 passed, 47 skipped in 0.95s | Sí |
+
+**Resultado global de E1: cumple parcialmente.**
 
 **Diferencia con lo planeado.** La medida de la Semana 13 estimó "máximo 4 archivos"
 (migración, entidad, repositorio y pantalla). El cambio real tocó también el
 servicio de aplicación, porque sus casos de uso reciben los datos como parámetros
-explícitos. Se cumple el criterio de fondo —un archivo por capa y nada fuera del
-módulo—, pero el número correcto para esta arquitectura es uno por cada una de sus
-5 capas.
+explícitos. Por eso el criterio numérico **no se cumple tal como se definió**
+(5 archivos en lugar de 4). Sí se cumple el criterio de fondo —un archivo
+por capa y nada fuera del módulo—, y para esta arquitectura el número correcto es uno
+por cada una de sus 5 capas. El tiempo del cambio no se registró.
