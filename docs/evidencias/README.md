@@ -36,7 +36,7 @@ que los módulos fuera del MVP siguen funcionando igual.
 |---|---|---|
 | 14 | ![Captura 14](14-ejecutable-clubfutbol-exe.png) | `dist/ClubFutbol.exe` generado con `ClubFutbol.spec`, conectado a la base con el `config.ini` que está junto al ejecutable |
 
-## 4. Migraciones aplicadas a la base del club
+## 4. Migraciones aplicadas a la base de desarrollo (`ClubFutbolDB` con datos de prueba)
 
 Cada migración termina con una consulta de verificación (`src/sql/migraciones/`).
 
@@ -47,7 +47,7 @@ Cada migración termina con una consulta de verificación (`src/sql/migraciones/
 | 17 | ![Captura 17](17-migracion-003.png) | **003**: 0 objetos reemplazados por el MVP siguen existiendo |
 | 18 | ![Captura 18](18-migracion-004.png) | **004**: `SP_AsignarJugadorPlantilla` con sus 4 parámetros y `PLANTILLA_JUGADOR.tipo = OK` |
 
-## 5. Hallazgo de las pruebas de integración en la base real
+## 5. Hallazgo de las pruebas de integración en la base de desarrollo
 
 | # | Captura | Qué muestra |
 |---|---|---|

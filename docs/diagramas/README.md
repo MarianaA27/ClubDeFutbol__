@@ -3,7 +3,7 @@
 Los diagramas muestran **cómo quedó realmente el sistema** al terminar la
 re-arquitectura (entrega final). La versión 1 (arquitectura objetivo del Entregable 3)
 sigue en el historial de git. Cambios de la versión 2: la API REST como segundo
-adaptador de presentación, las migraciones 001–003, la limpieza del código legado y
+adaptador de presentación, las migraciones 001–004, la limpieza del código legado y
 la integración continua con SQL Server real; se agrega un diagrama de secuencia del
 flujo principal. Están hechos con [C4-PlantUML](https://github.com/plantuml-stdlib/C4-PlantUML),
 que viene incluido en PlantUML, así que no se necesita conexión a internet para exportarlos.

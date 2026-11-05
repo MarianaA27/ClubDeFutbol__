@@ -17,7 +17,7 @@ Deployment_Node(pc, "Equipo del club", "PC con Windows 10/11 (monousuario)") {
     }
     Deployment_Node(odbc, "Microsoft ODBC Driver 17/18 for SQL Server", "Controlador del sistema operativo")
     Deployment_Node(sql, "Microsoft SQL Server Express", "Instancia local (p. ej. .\\SQLEXPRESS)") {
-        ContainerDb(bd, "ClubFutbolDB", "Base de datos", "Esquema base + migraciones 001–003")
+        ContainerDb(bd, "ClubFutbolDB", "Base de datos", "Esquema base + migraciones 001–004")
     }
 }
 

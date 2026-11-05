@@ -15,7 +15,7 @@ System_Ext(cliente, "Cliente de la API", "Swagger UI, Postman u otro sistema")
 System_Boundary(sistema, "PaladinesFC") {
     Container(app, "Aplicación de escritorio", "Python 3 · CustomTkinter · ClubFutbol.exe (PyInstaller)", "Pantallas del MVP sobre los servicios de aplicación; módulos legados sobre legado/crud.py.", $tags="mvp")
     Container(api, "API REST del MVP", "Python 3 · FastAPI · uvicorn (python run_api.py)", "26 endpoints de Jugadores, Jugador–Tutor, Tutores y Profesores. Swagger en /docs. Usa los MISMOS servicios que la aplicación.", $tags="nuevo")
-    ContainerDb(bd, "ClubFutbolDB", "Microsoft SQL Server (instancia local)", "15 tablas + migraciones 001–003: TUTOR.estado, JUGADOR.eps, índices de reglas y retiro de procedimientos reemplazados.")
+    ContainerDb(bd, "ClubFutbolDB", "Microsoft SQL Server (instancia local)", "15 tablas + migraciones 001–004: TUTOR.estado, JUGADOR.eps, índices de reglas, retiro de procedimientos reemplazados y reparación de SP_AsignarJugadorPlantilla.")
     Container(config, "config.ini", "Archivo INI / variables PALADINES_DB_*", "Cadena de conexión externa (antes fijada en el código: SERVER=GIANY).", $tags="nuevo")
     Container(log, "Bitácora", "logs/paladinesfc.log (rotativo)", "Operaciones revertidas por la unidad de trabajo, con su causa.", $tags="nuevo")
 }
